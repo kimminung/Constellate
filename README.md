@@ -116,7 +116,7 @@ All 3-D assets, textures, renders and the app icon are produced headlessly by Bl
 BLENDER=/Applications/Blender.app/Contents/MacOS/Blender
 cd Blender/scripts
 $BLENDER --background --python build_all.py        # assets → textures → renders → icon (~15 min; sky render ~9 min)
-./make_icon_set.sh                                 # icon_16…1024 + Docs/images/icon-256.png
+./make_icon_set.sh                                 # mac_16…512 from mac_1024 + Docs/images/icon-256.png
 $BLENDER --background --python build_textures.py -- --fallback   # numpy sky in seconds instead of Cycles
 ```
 
@@ -125,10 +125,23 @@ $BLENDER --background --python build_textures.py -- --fallback   # numpy sky in 
 | `constellate_lib.py` | shared palette / materials / USDZ export + verification / PNG writer |
 | `build_assets.py` | `Constellate/Resources/Assets3D/{HostOrb,ClusterOrb,Avatar_Bust,Beacon,ReviewPin,Stage_Ring,Pointer_Dart}.usdz` |
 | `build_textures.py` (`--fallback`, `--derived-only`) | `Resources/Textures/{Sky_Dark,Sky_Tint,Floor_Grid}.png` |
-| `render_assets.py` | `Blender/renders/*.png` + `AppIcon-1024.png` |
-| `build_all.py` (`--skip-*`, `--fallback-sky`) | everything above |
+| `render_assets.py` | `Blender/renders/*.png` (asset + theme renders) |
+| `render_icons.py` | platform app icons: iOS light/dark/tinted, macOS rounded tile, visionOS Front/Middle/Back layers, `Blender/renders/icon_sheet.png` |
+| `build_all.py` (`--skip-*`, `--skip-icons`, `--fallback-sky`) | everything above |
 
 Material slots are fixed (`Core`, `Band0…Band3`, `Shell`, `Accent`, `Glass`, `Base`) so the app swaps them for theme-driven materials at runtime; every USDZ passes `usdchecker --arkit`. Blender 5.2 ignores the Principled Alpha socket, so the exporter post-processes `inputs:opacity` with the bundled `pxr`. `Sky_Dark.png` is a Cycles render (4096×2048, 32 samples, denoise off to keep 1–2 px stars); presentation renders use AgX + bloom. The Blender MCP server was not connected in this session, so the CLI path was used — the same scripts run unchanged under MCP `execute_blender_code`. If assets are missing the app uses procedural fallbacks.
+
+## App icons
+
+All platform icons are rendered in Blender from one scene (same camera, so the visionOS layers align): the host orb as hero, a small constellation of code cards with cyan/amber/pink glints, two cluster orbs and sharp stars.
+
+<img src="Blender/renders/icon_sheet.png" alt="App icons: iOS light / dark / tinted, macOS tile, visionOS layers" width="100%">
+
+| Platform | Files | Notes |
+|---|---|---|
+| iOS / iPadOS | `AppIcon-1024.png`, `-dark.png`, `-tinted.png` | three appearances (`luminosity` dark / tinted) in `AppIcon.appiconset` |
+| macOS | `mac_1024.png` → `mac_16…512.png` | rounded tile (r 22.4 %), 10 % margin, glass rim light |
+| visionOS | `AppIcon.solidimagestack/{Back,Middle,Front}` | Back = space + stars, Middle = cards + cluster orbs, Front = host orb; parallax on hover |
 
 ## Roadmap
 
@@ -196,7 +209,7 @@ Xcode 27에서 `Constellate.xcodeproj`를 열고 Constellate 스킴을 visionOS 
 
 ### Blender 에셋
 
-`Blender/scripts/build_all.py`를 Blender 5.2 헤드리스로 실행하면 `Constellate/Resources/Assets3D/*.usdz`, `Resources/Textures/*.png`, `Blender/renders/*.png`, 앱 아이콘이 생성됩니다(`constellate_lib.py`, `build_assets.py`, `build_textures.py`, `render_assets.py`, `make_icon_set.sh`). 머티리얼 슬롯(`Core` `Band0…Band3` `Shell` `Accent` `Glass` `Base`)은 고정되어 앱이 런타임에 교체합니다. 이번 세션에는 Blender MCP가 연결되지 않아 CLI 경로를 썼고, 같은 스크립트를 MCP `execute_blender_code`로도 실행할 수 있습니다. 자세한 내용은 `Docs/PRD-Design-Constellate.md` §9–10과 `Blender/scripts/README.md`.
+`Blender/scripts/build_all.py`를 Blender 5.2 헤드리스로 실행하면 `Constellate/Resources/Assets3D/*.usdz`, `Resources/Textures/*.png`, `Blender/renders/*.png`, 앱 아이콘이 생성됩니다(`constellate_lib.py`, `build_assets.py`, `build_textures.py`, `render_assets.py`, `render_icons.py`(플랫폼별 앱 아이콘: iOS 라이트/다크/틴트, macOS 타일, visionOS 3레이어), `make_icon_set.sh`). 머티리얼 슬롯(`Core` `Band0…Band3` `Shell` `Accent` `Glass` `Base`)은 고정되어 앱이 런타임에 교체합니다. 이번 세션에는 Blender MCP가 연결되지 않아 CLI 경로를 썼고, 같은 스크립트를 MCP `execute_blender_code`로도 실행할 수 있습니다. 자세한 내용은 `Docs/PRD-Design-Constellate.md` §9–10과 `Blender/scripts/README.md`.
 
 ### 문서
 

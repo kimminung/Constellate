@@ -17,12 +17,14 @@ $BLENDER --background --python build_assets.py -- HostOrb Beacon       # subset
 $BLENDER --background --python build_textures.py                       # Sky_Dark (Cycles) + Sky_Tint + Floor_Grid
 $BLENDER --background --python build_textures.py -- --fallback         # numpy sky instead of Cycles (seconds)
 $BLENDER --background --python build_textures.py -- --derived-only     # only Sky_Tint + Floor_Grid from existing Sky_Dark
-$BLENDER --background --python render_assets.py                        # all renders + icon
-$BLENDER --background --python render_assets.py -- host_orb theme_dark # subset (no icon unless --icon)
-$BLENDER --background --python render_assets.py -- --icon-only
+$BLENDER --background --python render_assets.py                        # all presentation renders
+$BLENDER --background --python render_assets.py -- host_orb theme_dark # subset
+$BLENDER --background --python render_icons.py                         # all platform icons + icon_sheet.png
+$BLENDER --background --python render_icons.py -- --sheet-only         # only re-compose icon_sheet.png
+./make_icon_set.sh                                                      # then: mac_* downscales + Docs/images/icon-256.png
 ```
 
-`build_all.py` accepts `--skip-assets --skip-textures --skip-renders --skip-icon --fallback-sky`.
+`build_all.py` accepts `--skip-assets --skip-textures --skip-renders --skip-icons --legacy-icon --fallback-sky`.
 
 ## Files
 
@@ -31,8 +33,9 @@ $BLENDER --background --python render_assets.py -- --icon-only
 | `constellate_lib.py` | shared helpers: palette, materials, primitives, USDZ export + verification, PNG writer, Cycles/Metal setup, glare, camera framing |
 | `build_assets.py` | `Constellate/Resources/Assets3D/{HostOrb,ClusterOrb,Avatar_Bust,Beacon,ReviewPin,Stage_Ring,Pointer_Dart}.usdz` |
 | `build_textures.py` | `Constellate/Resources/Textures/{Sky_Dark,Sky_Tint,Floor_Grid}.png` |
-| `render_assets.py` | `Blender/renders/*.png` (1280x960) and `Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` |
-| `make_icon_set.sh` | `icon_16 … icon_1024.png` in the appiconset + `Docs/images/icon-256.png` |
+| `render_assets.py` | `Blender/renders/*.png` (1280x960); its single-icon path is legacy (`build_all.py --legacy-icon`) |
+| `render_icons.py` | platform icons from one scene / one ortho camera: iOS `AppIcon-1024{,-dark,-tinted}.png`, macOS `mac_1024.png` (+ `Blender/renders/icon_macos.png`), visionOS `AppIcon.solidimagestack/*/Content.imageset/{Back,Middle,Front}.png`, preview `Blender/renders/icon_sheet.png` |
+| `make_icon_set.sh` | `mac_16 … mac_512.png` (sips from `mac_1024.png`) + `Docs/images/icon-256.png` (from the iOS icon) |
 
 ## Conventions baked into the exporter
 
@@ -66,3 +69,24 @@ $BLENDER --background --python render_assets.py -- --icon-only
 Cycles on Metal, 64 samples, OIDN denoise, AgX view transform (so strength-4 emissives roll off), compositor
 Bloom glare, world = `Sky_Dark.png` (dark) or `Sky_Tint.png` x `HSL(210,0.34,0.17)` (tinted Ocean, accents
 `HSL(210,0.75,0.72)`), floor = dark plane with the grid texture emissive in `#2A3150`.
+
+## App icons (`render_icons.py`)
+
+One scene (1 unit = 1024 px, orthographic camera along +Y) with collections `Back` (radial backdrop, floor-hint
+glow, relation lines, stars), `BackOuter` (stars outside the mac tile), `Middle` (7 code cards with cyan/amber/pink
+border glints, 2 cluster orbs, 2 orbit rings), `Front` (host orb, scaled 1.5 -> 40 % of the width, core emission
+tamed to 1.6 so the bands read), `MacTile` (analytic rounded-rect mesh, side 0.824, corner radius 22.4 %, solidified
++ bevelled, glossy coat for rim light). 128 samples, OIDN, AgX, bloom whose luminance is also written into alpha
+(`SetAlpha` + shared Math nodes) so glow survives `film_transparent` layers.
+
+| Output | How |
+|---|---|
+| `AppIcon-1024.png` | all collections, opaque |
+| `AppIcon-1024-dark.png` | same from a rebuilt scene with near-black backdrop and glints x1.4 |
+| `AppIcon-1024-tinted.png` | transparent render (backdrop hidden) -> Rec.709 luminance x1.25 -> grey RGBA |
+| `mac_1024.png` | tile visible, backdrop hidden, transparent render, then numpy rounded-rect alpha clip (824 px / r 184.6) |
+| visionOS `Back/Middle/Front.png` | same camera; Back opaque, Middle+Front transparent (fully transparent pixels get RGB 0) |
+| `icon_sheet.png` | 1600x600 Cycles scene of image planes + labels; visionOS layers offset to show parallax, circle-cropped |
+
+`Contents.json` of the appiconset lists the three iOS appearances (`luminosity: dark / tinted`) and points the
+mac slots at `mac_*.png`; `AppIcon.solidimagestack` mirrors the CoulsonAndJarvis layer structure.
