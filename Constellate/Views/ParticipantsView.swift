@@ -39,6 +39,9 @@ struct ParticipantsView: View {
                 if model.session.isSimulated {
                     Button("Clear") { model.session.removeSimulatedMembers() }
                 }
+                Toggle("Screenshot mode", isOn: Binding(get: { model.screenshotMode }, set: { model.screenshotMode = $0 }))
+                    .toggleStyle(.button)
+                    .help("Hide placeholders and toasts for clean captures")
             }
             .controlSize(.small)
         }

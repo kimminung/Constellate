@@ -130,6 +130,7 @@ private struct VisionDashboard: View {
             if model.dockedClusterID != nil {
                 Button("Undock · 나와") { model.undockHost() }.controlSize(.small)
             }
+            SpeakRepliesToggle(compact: false)
             Text(model.immersiveState == .open ? "In constellation" : "Window only")
                 .font(.caption2).foregroundStyle(.secondary)
         }
@@ -199,7 +200,7 @@ private struct SplitDashboard: View {
                 .padding(16)
             }
             .overlay(alignment: .top) {
-                if let toast = model.toast {
+                if let toast = model.toast, !model.screenshotMode {
                     Text(toast)
                         .font(.callout.weight(.medium))
                         .padding(.horizontal, 14).padding(.vertical, 8)
@@ -297,13 +298,14 @@ struct HostHUDView: View {
                 if model.dockedClusterID != nil {
                     Button("Undock · 나와") { model.undockHost() }
                 }
+                SpeakRepliesToggle(compact: true)
                 Button { showTranscript = true } label: { Label("Transcript", systemImage: "text.bubble") }
                     .labelStyle(.iconOnly)
                     .help("Show the full host transcript")
                 TimeDialView(compact: true).frame(width: 200)
             }
             HStack {
-                TextField("Ask the host… (\"find views using @State\", \"explain\", \"tour\")", text: $question)
+                TextField(model.screenshotMode ? "Ask the host…" : "Ask the host… (\"find views using @State\", \"explain\", \"tour\")", text: $question)
                     .textFieldStyle(.roundedBorder)
                     .focused($fieldFocused)
                     .onSubmit(submit)
@@ -355,6 +357,30 @@ struct HostHUDView: View {
     }
 }
 #endif
+
+// MARK: - Speak replies
+
+/// "Speak replies · 음성 읽기" toggle (persisted via AppModel → UserDefaults).
+struct SpeakRepliesToggle: View {
+    @Environment(AppModel.self) private var model
+    var compact = false
+
+    var body: some View {
+        @Bindable var model = model
+        let toggle = Toggle(isOn: $model.speakReplies) {
+            Label("Speak replies · 음성 읽기", systemImage: model.speakReplies ? "speaker.wave.2.fill" : "speaker.slash")
+        }
+        .toggleStyle(.button)
+        .controlSize(.small)
+        .help("Read the host's replies aloud")
+        .accessibilityLabel("Speak replies")
+        if compact {
+            toggle.labelStyle(.iconOnly)
+        } else {
+            toggle.labelStyle(.titleAndIcon)
+        }
+    }
+}
 
 // MARK: - Granularity
 

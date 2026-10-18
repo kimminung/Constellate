@@ -1,6 +1,6 @@
-# Constellate — 태스크 문서 v1.1
+# Constellate — 태스크 문서 v1.2
 PRD: `Docs/PRD-Tech-Constellate.md` (v1.0) · 디자인: `Docs/PRD-Design-Constellate.md` · 스펙: `Docs/VISION.md`
-상태: **M0·M1·M2 완료, M3 구현 완료, M4·M5·M6 구현(실기기 미검증), M7 진행 (2026-10-19)** · 기준 환경: **Xcode 27 / visionOS 27 · iPadOS 27 · macOS 27**
+상태: **M0·M1·M2·M3 완료, M4·M5·M6 구현 완료(2차 라운드: 스트리밍 채팅·TTS·포인터 제스처·Accent 재틴트·핀 내보내기·follow-host 카메라), 실기기 미검증, M7 진행 (2026-10-19, PR #1 머지 후)** · 기준 환경: **Xcode 27 / visionOS 27 · iPadOS 27 · macOS 27**
 작성자: 김민웅(콜슨)
 
 범례: 🔴 P0 (핵심 체험) / 🟡 P1 (완성도) / ⚪ P2 (여유 시)
@@ -71,7 +71,7 @@ PRD: `Docs/PRD-Tech-Constellate.md` (v1.0) · 디자인: `Docs/PRD-Design-Conste
 | T3.8 | 🟡 | [x] | `VoiceButton` · HUD 요소 — 오브 상태·마이크·다이얼 | `Views/VoiceButton.swift`, `Views/DashboardView.swift` | 상태 변화 반영 |
 | T3.9 | ⚪ | [ ] | 캘리그램 expand 연출(글자 흐름 0.8 s) | — | reduce motion 시 크로스페이드 |
 
-## M4. 호스트 AI — 구현(스트리밍 제외), 실기기 미검증
+## M4. 호스트 AI — 구현 완료(채팅 스트리밍 포함), 실기기 미검증
 
 | ID | 우선 | 상태 | 태스크 | 산출물 | 완료 기준 |
 |---|---|---|---|---|---|
@@ -81,11 +81,12 @@ PRD: `Docs/PRD-Tech-Constellate.md` (v1.0) · 디자인: `Docs/PRD-Design-Conste
 | T4.4 | 🔴 | [x] | `@Generable` 응답 — `LocateAnswer{speech, nodeIDs}`, `TourAnswer{title, steps}` → 하이라이트/소환/투어 실행 | `AI/HostAI.swift` | 응답 → 씬 반영 |
 | T4.5 | 🔴 | [x] | `HeuristicHost` 폴백 — 동일 인텐트를 CodeSearcher/heuristicSummary/TourBuilder로, 배지 | `AI/HeuristicHost.swift` | 시뮬레이터에서 5 인텐트 응답(`screenshot-ipad-summon.png`) |
 | T4.6 | 🔴 | [x] | 컨텍스트 초과 복구 — 새 세션 재시도 → 폴백 | `AI/HostAI.swift` | 복구 경로 존재 |
-| T4.7 | 🟡 | [ ] | **스트리밍 응답**(`streamResponse` → 말풍선 타이핑) — **미구현**, 현재 완성 응답 일괄 표시 | `Views/HostChatView.swift` | 부분 텍스트 표시 |
+| T4.7 | 🟡 | [~] | **스트리밍 응답** — 자유 채팅은 `HostAI.streamChat`(`LanguageModelSession.streamResponse`, 부분 갱신 ≤ 15 Hz)로 말풍선 타이핑 ✔; explain/review/summarize 도구 응답은 아직 일괄 표시(T4.10) | `AI/HostAI.swift`, `Views/HostChatView.swift` | 채팅 부분 텍스트 표시 ✔ |
+| T4.10 | 🟡 | [ ] | 도구 응답 스트리밍 — `LocateAnswer`/`TourAnswer` 부분 생성(`PartiallyGenerated`) 처리 후 explain/review/summarize도 스트리밍 | `AI/HostAI.swift` | 도구 응답 타이핑 표시 |
 | T4.8 | 🟡 | [~] | 가드레일 거부 처리 — 오류 메시지 표시, 전용 문구/Idle 복귀 다듬기 필요 | `AI/HostAI.swift` | 거부 시 안내 + Idle |
 | T4.9 | 🔴 | [ ] | **실기기 검증**(Vision Pro / M-시리즈 Mac, Apple Intelligence ON) — 5 도구 실호출 로그 | `Docs/images/ai-tools-log.png` | 성공 캡처 |
 
-## M5. 음성 출두 — 구현, 실기기 미검증
+## M5. 음성 출두 — 구현 완료(TTS 포함), 실기기 미검증
 
 | ID | 우선 | 상태 | 태스크 | 산출물 | 완료 기준 |
 |---|---|---|---|---|---|
@@ -95,11 +96,11 @@ PRD: `Docs/PRD-Tech-Constellate.md` (v1.0) · 디자인: `Docs/PRD-Design-Conste
 | T5.4 | 🔴 | [x] | `BeaconEntity` — `Beacon.usdz` + 테마 `beacon` 색, 등장/해제 | `Spatial/BeaconEntity.swift` | 비콘 표시·제거 |
 | T5.5 | 🔴 | [x] | 소환(summon) — 복제 카드 → 사용자 앞, 가이드선, 해제 복귀, 하이라이트 링 | `Spatial/ConstellationSceneController.swift` | `screenshot-ipad-summon.png` |
 | T5.6 | 🔴 | [x] | 텍스트 입력 폴백 — `HostChatView`가 동일 라우터 사용 | `Views/HostChatView.swift` | 시뮬레이터 전 인텐트 동작 |
-| T5.7 | 🟡 | [ ] | TTS(`AVSpeechSynthesizer`) + Speaking 상태 연동 | `Voice/Speaker.swift` | 발화 중 에너지 0.75 |
+| T5.7 | 🟡 | [x] | TTS `HostVoice` — `AVSpeechSynthesizer`, ko-KR/en-US 자동 선택, "Speak replies · 음성 읽기" 토글(영구 저장), `Presence.speaking`을 실제 발화 구간에 연동 | `Voice/HostVoice.swift` | 발화 중 에너지 0.75 ✔ |
 | T5.8 | 🔴 | [ ] | **실기기 검증** — "콘스텔, @State를 쓰는 뷰 찾아줘" → 비콘 + 복제 카드 | `Docs/images/summon-device.png` | 캡처 |
 | T5.9 | 🟡 | [ ] | `installTap` deprecation 경고 제거 — 새 `AVAudioInputNode` 비동기 API로 교체 | `Voice/SpeechListener.swift` | 경고 0 |
 
-## M6. 회의 (GroupActivities) — 구현(시뮬레이션 멤버), 2기기 미검증
+## M6. 회의 (GroupActivities) — 구현 완료(시뮬레이션 멤버), 2기기 미검증
 
 | ID | 우선 | 상태 | 태스크 | 산출물 | 완료 기준 |
 |---|---|---|---|---|---|
@@ -107,14 +108,16 @@ PRD: `Docs/PRD-Tech-Constellate.md` (v1.0) · 디자인: `Docs/PRD-Design-Conste
 | T6.2 | 🔴 | [~] | 핸드셰이크 — hello → roster/graphDigest/theme/timeDial/mode; 체크섬 불일치 시 그래프 구조 청크 전송은 **미구현** | `Session/SessionCoordinator.swift` | 4000 파일 전송 ≤ 5 s, 소스 본문 미포함 |
 | T6.3 | 🔴 | [x] | `hostSpeech ask:` 규약 — member 질문 전달, host만 AI 수행, 답변 브로드캐스트 | `Session/SessionCoordinator.swift` | member 질문 → host 답변 |
 | T6.4 | 🔴 | [x] | 역할 권한 — 테마/다이얼/모드/투어는 host만 | `Views/*`, `App/AppModel.swift` | member에서 제어 비활성 |
-| T6.5 | 🔴 | [~] | follow-host — `followHost` 수신·상태 반영 ✔, iPad/mac 카메라 보간·visionOS 가이드선 다듬기 | `Session/SessionCoordinator.swift`, `Platform/OrbitCameraRig.swift` | 2기기 follow 확인 |
-| T6.6 | 🔴 | [~] | 레이저 포인터 — `pointer` 메시지·`Pointer_Dart` 엔티티 ✔, **입력 제스처 바인딩 미구현** | `Spatial/ConstellationSceneController.swift` | 상대 기기에 다트 표시 |
-| T6.7 | 🔴 | [~] | 리뷰 핀 — `pin`/`resolvePin` 수신·`ReviewPin` 표시·인스펙터 목록 ✔, 라인 핀 작성 UI·JSON 내보내기 | `Session/SessionCoordinator.swift`, `Views/InspectorView.swift` | 2기기 핀 동기화 + 내보내기 |
+| T6.5 | 🔴 | [x] | follow-host — `followHost` 상태 반영, 원격 `.summon`/`.tourStep` 수신 시 iPad/Mac 궤도 카메라가 해당 노드로 비행(거리 3.5 m), visionOS는 카메라 대신 발광 가이드 화살표 표시 | `Session/SessionCoordinator.swift`, `Platform/OrbitCameraRig.swift`, `Spatial/ConstellationSceneController.swift` | 로컬 시뮬레이션 멤버로 확인; 2기기는 T6.11 |
+| T6.6 | 🔴 | [x] | 레이저 포인터 — iPad/Mac: 0.35 s 길게 누르기 + 드래그 → 카메라 레이 + `Scene.raycast`(실패 시 평면 폴백); visionOS: 스카이돔 위 핀치 유지. `.pointer` ≤ 10 Hz 브로드캐스트, `Pointer_Dart` 표시. **주의**: 손을 떼도 해제 메시지를 보내지 않아 원격 다트가 마지막 위치에 남음(T6.13) | `Spatial/ConstellationSceneController.swift`, `Platform/ConstellationViewport.swift`, `Platform/ConstellationImmersiveView.swift` | 상대 기기에 다트 표시 ✔ |
+| T6.7 | 🔴 | [x] | 리뷰 핀 — 작성·`pin`/`resolvePin` 동기화·`ReviewPin` 표시·인스펙터 목록, resolve/삭제(host 또는 작성자; 삭제는 `.resolvePin(resolved: true)`로 전파), **Markdown 내보내기** `PinsExporter`(iPad/visionOS `ShareLink`, macOS `fileExporter`) | `Session/SessionCoordinator.swift`, `Views/InspectorView.swift`, `Support/PinsExporter.swift` | 핀 동기화 + 내보내기 파일 ✔ |
 | T6.8 | 🔴 | [x] | 가이드 투어 — `tour`/`tourStep` 전파, host 전진/후진, 스텝 비콘 + 내레이션 | `Views/TourBarView.swift` | 시나리오 C 로컬 완주 |
 | T6.9 | 🔴 | [x] | 아바타 — `Avatar_Bust.usdz` + 이름판, `Stage_Ring.usdz` 배치, `ParticipantsView` | `Spatial/AvatarEntity.swift`, `Views/ParticipantsView.swift` | 참가자 수만큼 흉상 |
 | T6.10 | 🟡 | [ ] | 세션 종료 처리(host 이탈 안내), 재접속 | `Session/SessionCoordinator.swift` | 안내 표시 |
 | T6.11 | 🔴 | [ ] | **2기기 실기 검증** — 시나리오 A/B/C, 라운드트립 측정 | `Docs/images/session-*.png` | ≤ 300 ms 기록 |
-| T6.12 | 🟡 | [ ] | `Avatar_Bust` `Accent` 슬롯 런타임 재틴트(참가자 액센트) | `Spatial/AssetLoader.swift` | 참가자별 색 차이 |
+| T6.12 | 🟡 | [x] | USDZ `Accent` 런타임 재틴트 — `AssetLoader.retintAccent(in:color:)`: 머티리얼/엔티티 이름 또는 색 매칭으로 `Accent` 슬롯을 참가자 액센트로 교체 | `Spatial/AssetLoader.swift` | 참가자별 흉상 색 차이 ✔ |
+| T6.13 | 🟡 | [ ] | 포인터 해제 메시지 — 손을 뗄 때 원격 다트를 지우는 신호(예: `pointer`에 `nil`/sentinel 위치 또는 수신 측 타임아웃 0.5 s 적용) | `Session/SessionCoordinator.swift`, `Spatial/ConstellationSceneController.swift` | 해제 후 원격 다트 사라짐 |
+| T6.14 | ⚪ | [x] | `screenshotMode` 디버그 토글 — 캡처용으로 HUD/디버그 요소 정리 | `App/AppModel.swift` | 토글 시 캡처 친화 화면 |
 
 ## M7. 마무리 · 검증 — 진행 중
 
@@ -131,13 +134,14 @@ PRD: `Docs/PRD-Tech-Constellate.md` (v1.0) · 디자인: `Docs/PRD-Design-Conste
 
 ---
 
-## 알려진 갭 (2026-10-19, 솔직한 목록)
+## 알려진 갭 (2026-10-19 2차 라운드 후, 솔직한 목록)
+
+해결됨(2차 라운드): 채팅 스트리밍(T4.7) · TTS(T5.7) · 포인터 제스처(T6.6) · `Accent` 재틴트(T6.12) · 핀 resolve/삭제/Markdown 내보내기(T6.7) · follow-host 카메라 비행/가이드 화살표(T6.5).
 
 | 갭 | 영향 | 태스크 |
 |---|---|---|
-| 호스트 AI 응답 스트리밍 없음(완성 응답 일괄 표시) | 긴 답변에서 수 초 공백 | T4.7 |
-| `Avatar_Bust.usdz` `Accent` 머티리얼 런타임 재틴트 없음 | 참가자 액센트 색이 흉상에 반영되지 않음(이름판만) | T6.12 |
-| 레이저 포인터가 입력 제스처에 바인딩되지 않음 | 메시지·엔티티는 있으나 사용자가 쏠 수 없음 | T6.6 |
+| 도구 응답(explain/review/summarize) 스트리밍 없음 — 자유 채팅만 스트리밍 | 도구 응답은 완성 후 일괄 표시 | T4.10 |
+| 포인터 해제 메시지 없음 | 손을 떼도 원격 다트가 마지막 위치에 남음 | T6.13 |
 | 그래프 구조 청크 전송 미구현 | 같은 프로젝트가 없는 member는 별자리를 못 받음(샘플은 공유) | T6.2 |
 | 씬 노드 캡 2500 / 전용 텍스처 400 | 대형 레포는 상위 가중치만 카드, 나머지는 폴더에 접힘/솔리드 | NFR-1.4(의도된 예산) |
 | `AVAudioEngine.installTap` deprecation 경고 1건 | 빌드 경고 | T5.9 |
@@ -171,6 +175,7 @@ M0 ─→ M1 (Kit) ─→ M2 (씬) ─→ M3 (오브·인스펙터) ─→ M4 (�
 ## 회귀 확인
 
 변경 후 항상 아래 두 명령을 실행한다(순서대로). 둘 다 성공해야 커밋한다.
+**주의**: `Scripts/build.sh`의 캐시 경로가 한때 상대 경로 `~/`로 풀려 저장소 안에 `~/Library/Caches/ConstellateBuild` 폴더가 생성·커밋된 적이 있다(main에서 제거, `.gitignore`에 추가됨). 커밋 전 `git status`에 `~/` 디렉터리가 보이면 추가하지 말 것.
 
 ```sh
 cd ConstellateKit && swift test          # Kit 단위 테스트 — 현재 54 테스트 / 9 스위트 통과
@@ -195,10 +200,10 @@ Constellate/
               EdgeRenderer, MeshFactory, TextureFactory, AssetLoader
   Platform/   OrbitCameraRig, ConstellationViewport (iPad/Mac), ConstellationImmersiveView + HeadPoseProvider (visionOS),
               ScrollWheelMonitor (macOS)
-  AI/         HostAI (LanguageModelSession · 5 Tools · LocateAnswer/TourAnswer · 복구), HeuristicHost
-  Voice/      SpeechListener, VoiceCommandRouter
+  AI/         HostAI (LanguageModelSession · streamChat · 5 Tools · LocateAnswer/TourAnswer · 복구), HeuristicHost
+  Voice/      SpeechListener, VoiceCommandRouter, HostVoice (TTS)
   Session/    ConstellateActivity, SessionCoordinator
-  Support/    ColorBridge, SourceProvider, SyntaxHighlighter
+  Support/    ColorBridge, SourceProvider, SyntaxHighlighter, PinsExporter
   Constellate.entitlements
   Resources/  Assets3D/*.usdz (7), Textures/*.png (3)
   Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png, icon_16…1024.png

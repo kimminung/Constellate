@@ -5,7 +5,7 @@
 - 작성자: 김민웅(콜슨) · GitHub `kimminung`
 - 기준 환경: **Xcode 27 · visionOS 27 / iPadOS 27 / macOS 27** · Swift 5 언어 모드 + 기본 MainActor 격리 + Approachable Concurrency · Combine 금지(async/await)
 - 공유 스펙: `Docs/VISION.md` (v0.1) · 디자인: `Docs/PRD-Design-Constellate.md` · 태스크: `Docs/TASKS-Constellate.md`
-- 상태: **v1.0 — Kit 구현·테스트 완료(54 테스트 / 9 스위트), 앱 3 플랫폼 빌드 통과(`Scripts/build.sh all` exit 0 ×3), 에셋 7종·텍스처 3종 생성. 실기기(Vision Pro·SharePlay 2기기·Apple Intelligence) 검증 미완** — 2026-10-19 갱신
+- 상태: **v1.0 — Kit 구현·테스트 완료(54 테스트 / 9 스위트), 앱 3 플랫폼 빌드 통과(`Scripts/build.sh all` exit 0 ×3), 에셋 7종·텍스처 3종 생성. PR #1 머지 후 2차 라운드(채팅 스트리밍·TTS·포인터 제스처·Accent 재틴트·핀 Markdown 내보내기·follow-host 카메라) 반영. 실기기(Vision Pro·SharePlay 2기기·Apple Intelligence) 검증 미완** — 2026-10-19 갱신
 - 저장소: `github.com/kimminung/Constellate` · Bundle ID `com.coulson.Constellate`
 
 ---
@@ -207,7 +207,7 @@ stateDiagram-v2
 | FR-4.5 | **폴백**: 모델 불가(기기 미지원, Apple Intelligence 꺼짐, 시뮬레이터) 또는 응답 실패 시 동일 인텐트를 `CodeSearcher`/`ClusterBuilder.heuristicSummary`/`TourBuilder`로 처리. 기능은 유지되고 문장이 템플릿형이 될 뿐. UI에 "휴리스틱 모드" 배지 | 🔴 |
 | FR-4.6 | **컨텍스트 복구**: `exceededContextWindowSize` 발생 시 트랜스크립트의 최근 N턴 + 현재 도킹 요약으로 새 세션을 만들고 재시도(1회). 그래도 실패하면 폴백 | 🔴 |
 | FR-4.7 | 코드 발췌는 도구 결과에만 포함되며(노드당 ≤ 120줄), 프롬프트 전체는 모델 컨텍스트의 70 %를 넘지 않도록 요약·절단 | 🔴 |
-| FR-4.8 | 응답 스트리밍: `streamResponse`로 부분 텍스트가 오브 말풍선에 타이핑되고, 오브는 Thinking → Speaking으로 전환. **v1.0 미구현** — 현재는 완성 응답을 한 번에 표시(TASKS T4.7, 오픈 이슈 O10) | 🟡 |
+| FR-4.8 | 응답 스트리밍: 자유 채팅은 `HostAI.streamChat`이 `LanguageModelSession.streamResponse`로 부분 텍스트를 말풍선에 타이핑(갱신 ≤ 15 Hz), 오브는 Thinking → Speaking. **도구 응답(explain/review/summarize)은 아직 완성 후 일괄 표시**(TASKS T4.10, 오픈 이슈 O10) | 🟡 |
 | FR-4.9 | 호스트 전용: member 기기는 모델을 만들지 않는다. member의 질문은 `hostSpeech(text: "ask: …")`로 host에 전달되고(§4.6 규약) host가 대신 묻는다 | 🔴 |
 | FR-4.10 | 가드레일 거부(`guardrailViolation`) 시 "그 요청은 처리할 수 없어요"를 말하고 Idle로 복귀 | 🟡 |
 
@@ -232,7 +232,7 @@ stateDiagram-v2
 | FR-5.5 | **동기화**: `summon(nodeID:by:reason:)` 브로드캐스트 → 모든 참가자 기기에 비콘 생성(복제 카드는 요청자 기기에서만). `highlight(nodeIDs:by:)`는 링만 | 🔴 |
 | FR-5.6 | member 기기에서 웨이크워드가 감지되면 전사는 로컬에서 하되 AI는 host가 수행(`ask:` 규약). 응답 `hostSpeech`를 받으면 member 오브가 Speaking 상태로 재생 | 🔴 |
 | FR-5.7 | 시뮬레이터/모델 미설치 환경: SpeechAnalyzer 불가 시 텍스트 입력 필드로 동일 인텐트 라우팅(기능 동등) | 🔴 |
-| FR-5.8 | TTS: `AVSpeechSynthesizer`로 호스트 응답을 읽어준다(설정에서 끌 수 있음). 말하는 동안 오브 Speaking | 🟡 |
+| FR-5.8 | TTS `HostVoice`(`Voice/HostVoice.swift`): `AVSpeechSynthesizer`로 호스트 응답을 읽어준다. 로케일 ko-KR/en-US 자동 선택, "Speak replies · 음성 읽기" 토글(영구 저장), `Presence.speaking`은 실제 발화 구간에만 켜진다 | 🟡 |
 
 **음성 출두 시퀀스**
 
@@ -269,9 +269,9 @@ sequenceDiagram
 | FR-6.3 | **참가 핸드셰이크**: 입장 → `hello(Participant)` → host가 `roster([Participant])` + `graphDigest(projectName:nodeCount:checksum:)` + 현재 `theme`·`timeDial`·`mode`·도킹 상태 송신. member의 로컬 체크섬(`GraphDigest.checksum`)이 다르면 host가 `CodeGraph` JSON을 청크(≤ 60 KB)로 전송(별도 `graphChunk` 전송 레이어, enum 밖) | 🔴 |
 | FR-6.4 | **메시지**: `ConstellateMessage` enum 전체(아래 표). JSON 인코딩, 전송은 앱 책임 | 🔴 |
 | FR-6.5 | **호스트 질문 전달 규약 `hostSpeech ask:`**: member → host 질문은 `hostSpeech(text: "ask: <질문>", nodeIDs: <선택 노드>)`. host는 `text.hasPrefix("ask:")`인 메시지만 AI에 넘기고, 답변은 접두사 없는 `hostSpeech`로 모두에게 보낸다. member는 `ask:` 접두사 메시지를 말풍선으로 그리지 않는다(요청자 기기에선 "질문 전달됨" 토스트) | 🔴 |
-| FR-6.6 | **follow-host**: `followHost(true)`면 member의 궤도 카메라(iPad/macOS)가 host의 "시점 노드"(host가 마지막으로 선택/비콘한 노드)로 보간 이동. visionOS member는 카메라를 옮기지 않고 가이드선+비콘만 | 🔴 |
-| FR-6.7 | **레이저 포인터**: 핀치 유지(visionOS) / 2손가락 터치(iPad) / 우클릭 드래그(macOS) 동안 `pointer(by:position:)` 10 Hz 전송(unreliable 허용). 수신 측은 `Pointer_Dart.usdz`를 참가자 액센트 색으로 표시하고 0.5 s 미수신 시 사라짐 | 🔴 |
-| FR-6.8 | **리뷰 핀**: `pin(ReviewPin)` / `resolvePin(UUID, resolved:)`. 노드 + 선택적 라인. `ReviewPin.usdz` 모델이 카드 모서리에, 라인 지정 시 해당 줄 옆에 작게. 인스펙터 핀 목록(미해결 우선). host 기기에 JSON 저장·내보내기 | 🔴 |
+| FR-6.6 | **follow-host**: `followHost(true)`면 원격 `.summon` / `.tourStep` 수신 시 member의 궤도 카메라(iPad/macOS)가 해당 노드로 비행(거리 3.5 m, 보간). visionOS member는 카메라를 옮기지 않고 **발광 가이드 화살표** + 비콘만 | 🔴 |
+| FR-6.7 | **레이저 포인터**: iPad/macOS는 **0.35 s 길게 누르기 + 드래그** → 카메라 레이 + `Scene.raycast`(실패 시 평면 폴백); visionOS는 스카이돔 위 **핀치 유지**. 조작 중 `pointer(by:position:)` ≤ 10 Hz 전송. 수신 측은 `Pointer_Dart.usdz`를 참가자 액센트 색으로 표시. **현재 한계**: 손을 떼도 해제 메시지를 보내지 않아 원격 다트가 마지막 위치에 남는다(0.5 s 타임아웃 또는 해제 신호 — O13) | 🔴 |
+| FR-6.8 | **리뷰 핀**: `pin(ReviewPin)` / `resolvePin(UUID, resolved:)`. 노드 + 선택적 라인. `ReviewPin.usdz` 모델이 카드 모서리에. 인스펙터 핀 목록(미해결 우선). resolve·삭제는 host 또는 작성자만(삭제는 `.resolvePin(resolved: true)`로 전파 — 전용 delete case 없음). **Markdown 내보내기** `Support/PinsExporter.swift`: iPad/visionOS `ShareLink`, macOS `fileExporter` | 🔴 |
 | FR-6.9 | **가이드 투어**: `tour(LearningTour)` 후 `tourStep(Int)`로 진행. host만 전진/후진. 각 스텝에 비콘 + 내레이션 말풍선(+TTS) | 🔴 |
 | FR-6.10 | **아바타**: 각 참가자는 `Avatar_Bust.usdz`(높이 0.45 m) + 이름판 + 액센트 색(`theme.avatarAccent` hue + `Participant.hueOffset`). 스테이지 링(`Stage_Ring.usdz`, 반지름 1.2 m, 6자리)에 입장 순서로 배치. visionOS에서 SharePlay 공간 Persona가 가능하면 Persona가 우선이고 흉상은 iPad/macOS 참가자용 | 🔴 |
 | FR-6.11 | 테마·다이얼·모드 변경은 host만 가능하며 `theme(ConstellateTheme)`, `timeDial(Float)`, `mode(MeetingMode)`로 전파. 다이얼은 0.1 s 쓰로틀 | 🔴 |
@@ -589,13 +589,13 @@ flowchart LR
 |---|---|---|---|
 | R1 | **시뮬레이터에 Apple Intelligence / SpeechAnalyzer 모델이 없다** | 개발·데모에서 AI·음성 경로 검증 불가 | 폴백 경로(FR-4.5, FR-5.7)를 1급 기능으로 설계. 텍스트 입력으로 동일 인텐트. 실기기(Vision Pro, M-시리즈 Mac) 검증을 M4·M5 완료 기준에 포함 |
 | R2 | **번들 `RealityView`(iPad/mac) 성능**: 수천 카드 + 엣지 | 60 fps 미달 | 단일 메시(카드/엣지), LOD(먼 카드 솔리드), 엣지 1500 캡, 텍스처 LRU, `renderingTechnique` 조정 |
-| R3 | **USDZ 머티리얼 호환**: Blender 5.2 USD 내보내기가 Principled **Alpha** 소켓을 무시(transmission → opacity만 매핑) | 유리 셸이 불투명하게 올라옴 | 내보내기 후 번들 `pxr`로 `inputs:opacity`를 후처리해 재패키징(`constellate_lib.export_usdz`). 머티리얼 이름 고정(`Core`, `Band0…Band3`, `Shell`, `Accent`, `Glass`, `Base`) → 앱 `AssetLoader`가 이름으로 교체. 7종 모두 `usdchecker --arkit` 통과. **잔여 갭**: `Accent` 슬롯의 런타임 재틴트(참가자 액센트) 미구현(O12) |
+| R3 | **USDZ 머티리얼 호환**: Blender 5.2 USD 내보내기가 Principled **Alpha** 소켓을 무시(transmission → opacity만 매핑) | 유리 셸이 불투명하게 올라옴 | 내보내기 후 번들 `pxr`로 `inputs:opacity`를 후처리해 재패키징(`constellate_lib.export_usdz`). 머티리얼 이름 고정(`Core`, `Band0…Band3`, `Shell`, `Accent`, `Glass`, `Base`) → 앱 `AssetLoader`가 이름으로 교체. 7종 모두 `usdchecker --arkit` 통과. `Accent` 슬롯은 `AssetLoader.retintAccent(in:color:)`가 머티리얼/엔티티 이름 또는 색 매칭으로 참가자 액센트로 재틴트(2차 라운드, O12 해결) |
 | R4 | **Persona 미지원 환경**(iPad/mac, 또는 Persona 미설정) | 참가자 존재감 부족 | `Avatar_Bust.usdz` 흉상 아바타 + 이름판 + 액센트 색을 기본으로. Persona 가능하면 흉상 숨김 |
 | R5 | FoundationModels 컨텍스트 한도(≈4k 토큰) | 큰 클러스터 요약 실패 | 도구 결과 절단(≤ 120줄/노드), 컨텍스트 복구(FR-4.6), 클러스터는 요약의 요약 |
 | R6 | 경량 심볼 추출기의 오탐(제네릭·클로저·문자열 안 브레이스) | 잘못된 엣지 | 문자열/주석 스트리핑 후 스캔, 테스트 픽스처(`Tests/Fixtures`) 확대, 베스트에포트임을 UI에 명시 |
 | R7 | SharePlay 세션에서 host 이탈 | 세션 붕괴 | v1.0은 세션 종료로 정의하고 "방장이 나갔습니다" 안내. 이양은 오픈 이슈 |
 | R8 | 큰 레포(>4000 파일)의 레이아웃 밀집 | 읽기 불가 | `maxFiles` 캡 + 폴더 가중 합산, 그래뉼래리티 folder 기본, 셸 간격 조정 UI |
-| R9 | 멀미(member 카메라 강제 이동) | 사용성 | visionOS에선 follow-host가 카메라를 옮기지 않음(가이드선만), iPad/mac은 0.6 s 보간 + 끄기 가능 |
+| R9 | 멀미(member 카메라 강제 이동) | 사용성 | visionOS에선 follow-host가 카메라를 옮기지 않음(발광 가이드 화살표만), iPad/mac은 3.5 m 거리로 보간 비행 + `followHost` 끄기 가능 |
 | R10 | Blender 5.2 헤드리스 파이프라인의 환경 의존 | 에셋 재생성 실패 | 스크립트가 `/Applications/Blender.app` 경로·버전 검사, 실패 시 앱은 프로시저럴 폴백 메시(구/링) 사용. 하늘 렌더(Cycles ~9분)는 `--fallback-sky`(numpy, 수 초)로 대체 가능 |
 | R11 | **Blender MCP 서버 미연결** — 이번 세션(2026-10-19)에는 MCP가 연결되지 않아 CLI(`--background --python`) 경로로 전부 생성했다 | MCP 경로 산출물 동일성 미검증 | 스크립트는 `sys.argv` 없이도 상수 기본값으로 동작하므로 `execute_blender_code`에 본문을 그대로 넘겨 실행 가능. MCP 연결 시 1회 교차 검증(T7.6) |
 | R12 | `AVAudioEngine.installTap` deprecation 경고(OS 27 SDK) | 향후 SDK에서 제거 가능 | `SpeechListener`에 경고 1건 잔존. `AVAudioInputNode`의 새 비동기 API로 교체 예정(T5.9) |
@@ -611,9 +611,9 @@ flowchart LR
 | **M1 Kit 완성** | Ingestor·Extractor·Layout·Cluster·Searcher·TourBuilder·SampleGraph·Graph Analysis 실구현 + 테스트 | Kit 테스트 전부 통과, OrbitNotes 샘플 ≥ 40파일 | ✅ 완료 — 54 테스트 / 9 스위트, OrbitNotes 47 파일 · 15 폴더 · 50+ 타입 |
 | **M2 별자리 씬** | RealityKit 공통 씬(카드·엣지·환경·오브), iPad/mac 궤도 카메라, visionOS 이머시브, 타임 다이얼, 테마 적용 | 3 플랫폼에서 OrbitNotes 별자리 표시·다이얼·그래뉼래리티 전환 | ✅ 완료(시뮬레이터) — `Scripts/build.sh all` exit 0 ×3, iPad/visionOS 스크린샷 |
 | **M3 오브·클러스터** | 클러스터 오브 expand/collapse, 호스트 오브 Presence, dock/undock, 인스펙터 | dock→질문 컨텍스트 전환, undock 드래그 | ✅ 구현 — `OrbEntity`·`CodeNodeEntity`·`InspectorView`·`CodeInspectorWindow` |
-| **M4 호스트 AI** | HostAI 세션, Tool 5종, @Generable, 폴백, 컨텍스트 복구, 스트리밍 | 실기기에서 5 도구 호출, 시뮬레이터에서 폴백 동등 | 🔄 구현(스트리밍 제외) — 시뮬레이터 폴백 확인, 실기기 Apple Intelligence 미검증 |
-| **M5 음성 출두** | SpeechAnalyzer 파이프라인, 웨이크워드, 인텐트 라우팅, 비콘·소환, TTS | 실기기 "콘스텔, …" → 비콘 + 복제 카드 | 🔄 구현(TTS 제외) — `SpeechListener`·`VoiceCommandRouter`·`BeaconEntity`·소환, 실기기 미검증 |
-| **M6 회의** | GroupActivities, 메시지 전체, 역할, ask: 규약, follow-host, 포인터, 핀, 투어, 아바타·스테이지 링 | 2기기 3 모드 시나리오 완주, 메시지 라운드트립 ≤ 300 ms | 🔄 구현(시뮬레이션 멤버) — 레이저 포인터 제스처 미바인딩, 그래프 청크 전송 미구현, 2기기 미검증 |
+| **M4 호스트 AI** | HostAI 세션, Tool 5종, @Generable, 폴백, 컨텍스트 복구, 스트리밍 | 실기기에서 5 도구 호출, 시뮬레이터에서 폴백 동등 | 🔄 구현 완료(채팅 스트리밍 `streamChat` 포함; 도구 응답 스트리밍은 미구현) — 실기기 Apple Intelligence 미검증 |
+| **M5 음성 출두** | SpeechAnalyzer 파이프라인, 웨이크워드, 인텐트 라우팅, 비콘·소환, TTS | 실기기 "콘스텔, …" → 비콘 + 복제 카드 | 🔄 구현 완료(TTS `HostVoice` 포함) — 실기기 미검증 |
+| **M6 회의** | GroupActivities, 메시지 전체, 역할, ask: 규약, follow-host, 포인터, 핀, 투어, 아바타·스테이지 링 | 2기기 3 모드 시나리오 완주, 메시지 라운드트립 ≤ 300 ms | 🔄 구현 완료(시뮬레이션 멤버; 포인터 제스처·핀 내보내기·follow-host 카메라·Accent 재틴트 2차 라운드 반영) — 포인터 해제 메시지·그래프 청크 전송 미구현, 2기기 미검증 |
 | **M7 마무리** | 성능 예산 검증, 접근성, README 스크린샷, 에셋 최종, 실기기 검증 | NFR 표 전 항목 측정치 기록 | ⬜ 진행 — iPad/visionOS 스크린샷·에셋 완료, macOS 스크린샷 대기(화면 기록 권한), 실기기 세션 미실시 |
 
 세부 태스크: `Docs/TASKS-Constellate.md`.
@@ -629,11 +629,13 @@ flowchart LR
 | O3 | `Package.swift`가 `swift-tools-version 6.0`, 플랫폼 visionOS 2 / iOS 18 / macOS 15로 선언되어 있다. VISION의 "Swift 5 모드 + OS 27"과 맞출지(`swiftLanguageModes: [.v5]`, 플랫폼 상향) | (a) 패키지는 Swift 6 모드 유지(순수 값 타입이라 무해) (b) 앱과 통일 | M1 |
 | ~~O4~~ | **해결(2026-10-19)**: `floorGrid`를 `validate()` 환경 색에 포함하고 Tinted 채도를 0.30 → 0.26으로 낮춤(chroma 0.146) | (b) 채택 | — |
 | ~~O5~~ | **해결(2026-10-19)**: 비공간 노드는 가장 가까운 공간 조상(type → file) 배치를 상속하도록 `RadialShellLayout` 구현·주석 정리 | (b) 채택 | — |
-| O10 | 응답 스트리밍(FR-4.8) 미구현 — `streamResponse` 도입 시 `LocateAnswer`의 부분 생성(`PartiallyGenerated`) 처리 설계 필요 | M7 또는 v1.1 | — |
-| O11 | 레이저 포인터가 메시지(`pointer`)·엔티티(`Pointer_Dart`)는 있으나 입력 제스처에 바인딩되지 않음 — 플랫폼별 제스처(핀치 유지 / 2손가락 / 우클릭 드래그) 확정 | M7 | — |
-| O12 | `Avatar_Bust.usdz`의 `Accent` 슬롯을 참가자 액센트 색으로 런타임 재틴트하지 않음(에셋 기본 색) — `AssetLoader`에서 머티리얼 교체 필요 | M7 | — |
+| O10 | **도구 응답** 스트리밍(FR-4.8) — 자유 채팅은 `streamChat`으로 해결(2차 라운드). explain/review/summarize는 `LocateAnswer`의 부분 생성(`PartiallyGenerated`) 처리 설계가 필요해 아직 일괄 표시 | M7 또는 v1.1 | — |
+| ~~O11~~ | **해결(2차 라운드)**: 레이저 포인터 제스처 바인딩 — iPad/Mac 0.35 s 길게 누르기 + 드래그(카메라 레이 + `Scene.raycast`, 평면 폴백), visionOS 스카이돔 핀치 유지, `.pointer` ≤ 10 Hz | 채택 | — |
+| ~~O12~~ | **해결(2차 라운드)**: `AssetLoader.retintAccent(in:color:)`로 `Accent` 슬롯을 참가자 액센트로 재틴트(이름 또는 색 매칭) | 채택 | — |
+| O13 | **포인터 해제 메시지 없음** — 손을 떼도 원격 다트가 마지막 위치에 남는다. (a) `pointer`에 sentinel 위치/`nil` 전송 (b) 수신 측 0.5 s 타임아웃(FR-6.7 원안) (c) 전용 `pointerEnd(by:)` case 추가(Kit 마이너) | M7 | — |
+| O14 | 핀 삭제가 전용 case 없이 `.resolvePin(resolved: true)`로 전파된다 — 수신 측은 삭제와 해결을 구분하지 못함. `deletePin(UUID)` case 추가 여부(O1·O2와 함께 Kit 마이너 버전으로 묶기) | v1.1 | — |
 | O6 | host 이양(host 이탈 시 다음 참가자가 AI 소유) | v1.0 비목표, v1.1 후보 | — |
-| O7 | 리뷰 핀 내보내기 형식(JSON만 vs Markdown 리포트) | M6 | — |
+| ~~O7~~ | **해결(2차 라운드)**: 리뷰 핀 내보내기 = **Markdown**(`Support/PinsExporter.swift`, iPad/visionOS `ShareLink`, macOS `fileExporter`) | Markdown 채택 | — |
 | O8 | visionOS에서 Persona와 흉상 아바타의 공존 규칙(Persona 있는 참가자도 이름판은 보일지) | M6 | — |
 | O9 | 호출(`calls`) 엣지 정확도가 낮을 경우 기본 표시에서 제외할지 | M1 측정 후 | — |
 

@@ -84,6 +84,13 @@ final class ConstellationSceneController {
     private var beaconDecor: Entity?
     private var pinDecor: Entity?
     private var bustDecor: Entity?
+    private var pointerDecor: Entity?
+
+    private var localPointerDart: ModelEntity?
+    private var localPointerRay: ModelEntity?
+    private var guideArrow: ModelEntity?
+    private var guideTarget: SIMD3<Float>?
+    private var guideAge: Float = 0
 
     /// Updated by the hosting view (head pose or camera) — used for summon and undock placement.
     var viewerPose: ViewerPose = .standing
@@ -117,6 +124,7 @@ final class ConstellationSceneController {
         beaconDecor = await AssetLoader.entity(named: "Beacon")
         pinDecor = await AssetLoader.entity(named: "ReviewPin")
         bustDecor = await AssetLoader.entity(named: "Avatar_Bust")
+        pointerDecor = await AssetLoader.entity(named: "Pointer_Dart")
         if let hostDecor { hostOrb.attachDecor(hostDecor) }
         await environment.build(theme: theme)
     }
@@ -529,13 +537,107 @@ final class ConstellationSceneController {
                 continue
             }
             let accent = theme.avatarAccent.shiftedHue(by: avatars[id]?.participant.hueOffset ?? 0)
-            var material = UnlitMaterial(color: accent.platformColor)
-            material.blending = .transparent(opacity: .init(floatLiteral: 0.9))
-            let dart = ModelEntity(mesh: MeshFactory.pinSphere, materials: [material])
+            let dart = makePointerDart(accent: accent)
             dart.name = "pointer:" + id.raw
             dart.position = position
             avatarsRoot.addChild(dart)
             pointerEntities[id] = dart
+        }
+    }
+
+    // MARK: - Laser pointer
+
+    /// Nearest collision hit along a ray (cards, orbs, avatars). Ignores the sky dome.
+    func raycastHit(origin: SIMD3<Float>, direction: SIMD3<Float>, maxDistance: Float = 30) -> SIMD3<Float>? {
+        guard let scene = root.scene else { return nil }
+        let hits = scene.raycast(origin: origin, direction: direction, length: maxDistance, query: .all, mask: .all, relativeTo: nil)
+        return hits
+            .filter { $0.entity !== environment.dome && $0.distance > 0.05 }
+            .min { $0.distance < $1.distance }?
+            .position
+    }
+
+    /// Shows the local participant's laser: a dart at `hit` and a thin ray from `origin`.
+    func setLocalPointer(origin: SIMD3<Float>, hit: SIMD3<Float>) {
+        let accent = theme.avatarAccent
+        if localPointerDart == nil {
+            let dart = makePointerDart(accent: accent)
+            dart.name = "pointer:local"
+            avatarsRoot.addChild(dart)
+            localPointerDart = dart
+            var material = UnlitMaterial(color: accent.lightened(0.3).platformColor)
+            material.blending = .transparent(opacity: .init(floatLiteral: 0.55))
+            let ray = ModelEntity(mesh: .generateBox(size: 1), materials: [material])
+            ray.name = "pointer:ray"
+            avatarsRoot.addChild(ray)
+            localPointerRay = ray
+        }
+        localPointerDart?.position = hit
+        guard let ray = localPointerRay else { return }
+        let delta = hit - origin
+        let length = simd_length(delta)
+        guard length > 0.01 else { return }
+        ray.position = origin + delta / 2
+        ray.orientation = simd_quatf(from: [0, 0, 1], to: delta / length)
+        ray.scale = [0.004, 0.004, length]
+    }
+
+    func clearLocalPointer() {
+        localPointerDart?.removeFromParent()
+        localPointerRay?.removeFromParent()
+        localPointerDart = nil
+        localPointerRay = nil
+    }
+
+    private func makePointerDart(accent: RGBA) -> ModelEntity {
+        var material = UnlitMaterial(color: accent.platformColor)
+        material.blending = .transparent(opacity: .init(floatLiteral: 0.95))
+        let dart = ModelEntity(mesh: MeshFactory.pinSphere, materials: [material])
+        if let decor = pointerDecor?.clone(recursive: true) {
+            AssetLoader.fit(decor, to: 0.05)
+            AssetLoader.retintAccent(in: decor, color: accent)
+            dart.addChild(decor)
+            dart.model = nil
+        }
+        return dart
+    }
+
+    // MARK: - Follow-host guide
+
+    /// Glowing arrow floating 0.7 m ahead of the viewer, pointing at `position`. Nil hides it.
+    func setGuideTarget(_ position: SIMD3<Float>?) {
+        guideTarget = position
+        guideAge = 0
+        guard position != nil else {
+            guideArrow?.isEnabled = false
+            return
+        }
+        if guideArrow == nil {
+            var material = UnlitMaterial(color: theme.highlight.platformColor)
+            material.blending = .transparent(opacity: .init(floatLiteral: 0.9))
+            let arrow = ModelEntity(mesh: .generateCone(height: 0.12, radius: 0.035), materials: [material])
+            arrow.name = "GuideArrow"
+            root.addChild(arrow)
+            guideArrow = arrow
+        }
+        guideArrow?.isEnabled = true
+    }
+
+    private func updateGuide(dt: Float) {
+        guard let target = guideTarget, let arrow = guideArrow, arrow.isEnabled else { return }
+        guideAge += dt
+        let anchor = viewerPose.ahead(0.7, drop: 0.15)
+        arrow.position = anchor
+        let toTarget = target - anchor
+        let distance = simd_length(toTarget)
+        if distance > 0.01 {
+            arrow.orientation = simd_quatf(from: [0, 1, 0], to: toTarget / distance)
+        }
+        let pulse = 1 + sin(guideAge * 5) * 0.12
+        arrow.scale = SIMD3(repeating: pulse)
+        // Auto-hide after 8 s or once the viewer is close to the target.
+        if guideAge > 8 || simd_distance(viewerPose.position, target) < 1.0 {
+            arrow.isEnabled = false
         }
     }
 
@@ -589,6 +691,8 @@ final class ConstellationSceneController {
                 hostFlight = flight
             }
         }
+
+        updateGuide(dt: dt)
 
         expiredBeacons.removeAll(keepingCapacity: true)
         for (id, beacon) in beacons {

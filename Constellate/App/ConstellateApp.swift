@@ -70,6 +70,9 @@ struct ConstellateCommands: Commands {
             Button("Reset Time Dial") { model.setTimeDial(0) }
                 .keyboardShortcut("0", modifiers: [.command, .option])
             Divider()
+            Toggle("Speak Replies", isOn: Binding(get: { model.speakReplies }, set: { model.speakReplies = $0 }))
+            Toggle("Screenshot Mode", isOn: Binding(get: { model.screenshotMode }, set: { model.screenshotMode = $0 }))
+            Divider()
             Button("Start Tour") { Task { await model.startTour() } }
             Button("Undock Host") { model.undockHost() }
                 .disabled(model.dockedClusterID == nil)

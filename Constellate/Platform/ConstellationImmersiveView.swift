@@ -34,6 +34,26 @@ struct ConstellationImmersiveView: View {
                 .onChanged { value in handleDrag(value) }
                 .onEnded { value in endDrag(value.entity) }
         )
+        // Pinch-hold on empty space (the sky dome), then drag = laser pointer.
+        .gesture(
+            LongPressGesture(minimumDuration: 0.35)
+                .sequenced(before: DragGesture(minimumDistance: 0))
+                .targetedToEntity(controller.environment.dome)
+                .onChanged { value in
+                    guard case .second(true, let drag) = value.gestureValue, let drag else { return }
+                    let domePoint = value.convert(drag.location3D, from: .local, to: .scene)
+                    pointer(toward: domePoint)
+                }
+                .onEnded { _ in
+                    controller.clearLocalPointer()
+                    model.setLocalPointer(nil)
+                }
+        )
+        .onChange(of: model.followEventToken) {
+            if let id = model.guideTargetID, let p = model.layout.position3(for: id, timeDial: model.timeDial) {
+                controller.setGuideTarget(p)
+            }
+        }
         .onChange(of: model.sceneRevision) { rebuild() }
         .onChange(of: model.theme) { controller.applyTheme(model.theme) }
         .onChange(of: model.timeDial) { controller.setTimeDial(model.timeDial) }
@@ -108,6 +128,17 @@ struct ConstellationImmersiveView: View {
                 model.undockHost()
             }
         }
+    }
+
+    /// Ray from the head through a point on the dome; hits a card/orb if possible, else 3 m out.
+    private func pointer(toward domePoint: SIMD3<Float>) {
+        let origin = controller.viewerPose.position
+        let delta = domePoint - origin
+        guard simd_length(delta) > 0.01 else { return }
+        let direction = simd_normalize(delta)
+        let hit = controller.raycastHit(origin: origin, direction: direction) ?? (origin + direction * 3)
+        controller.setLocalPointer(origin: origin + direction * 0.35 - [0, 0.12, 0], hit: hit)
+        model.setLocalPointer(hit)
     }
 
     private func endDrag(_ entity: Entity) {

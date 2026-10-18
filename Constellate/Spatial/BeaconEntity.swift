@@ -18,6 +18,7 @@ final class BeaconEntity {
     private let rings: [ModelEntity]
     private var color: RGBA
     private var lastOpacityBucket = -1
+    private var decor: Entity?
 
     init(nodeID: NodeID, color: RGBA, decor: Entity?) {
         self.nodeID = nodeID
@@ -46,7 +47,9 @@ final class BeaconEntity {
         if let decor {
             AssetLoader.fit(decor, to: Self.height)
             decor.name = "Decor"
+            AssetLoader.retintAccent(in: decor, color: color)
             root.addChild(decor)
+            self.decor = decor
             pillar.isEnabled = false
         }
     }
@@ -55,6 +58,7 @@ final class BeaconEntity {
 
     func setColor(_ color: RGBA) {
         self.color = color
+        if let decor { AssetLoader.retintAccent(in: decor, color: color) }
         var pillarMaterial = UnlitMaterial(color: color.lightened(0.15).platformColor)
         pillarMaterial.blending = .transparent(opacity: .init(floatLiteral: 0.5))
         pillar.model?.materials = [pillarMaterial]

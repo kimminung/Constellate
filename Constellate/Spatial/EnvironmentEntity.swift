@@ -8,7 +8,8 @@ import simd
 @MainActor
 final class EnvironmentEntity {
     let root = Entity()
-    private let dome: ModelEntity
+    /// Sky dome. On visionOS it carries a collision sphere so pinch-hold on "empty space" can be targeted.
+    let dome: ModelEntity
     private let floor: ModelEntity
     private var stageRing: Entity?
     private var floorTexture: TextureResource?
@@ -23,6 +24,10 @@ final class EnvironmentEntity {
         domeMaterial.faceCulling = .front
         dome = ModelEntity(mesh: .generateSphere(radius: 40), materials: [domeMaterial])
         dome.name = "SkyDome"
+#if os(visionOS)
+        dome.components.set(InputTargetComponent())
+        dome.components.set(CollisionComponent(shapes: [.generateSphere(radius: 40)]))
+#endif
         root.addChild(dome)
 
         var floorMaterial = UnlitMaterial(color: ConstellateTheme.dark.floor.platformColor)

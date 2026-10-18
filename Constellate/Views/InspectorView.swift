@@ -1,5 +1,6 @@
 import ConstellateKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Selected node: metadata, code card, relations, review pins and host actions.
 struct InspectorView: View {
@@ -10,6 +11,7 @@ struct InspectorView: View {
     /// Explicit node (inspector window) or nil to follow the selection.
     var nodeID: NodeID?
     @State private var pinText = ""
+    @State private var showExporter = false
 
     private var node: CodeNode? { model.node(nodeID ?? model.selectedNodeID) }
 
@@ -137,18 +139,33 @@ struct InspectorView: View {
 
     private func pins(_ node: CodeNode) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Review pins · 핀").font(.headline)
+            HStack {
+                Text("Review pins · 핀").font(.headline)
+                Spacer()
+                if !model.pins.isEmpty { exportControl }
+            }
             ForEach(model.pins(for: node.id)) { pin in
-                HStack(alignment: .top) {
-                    Image(systemName: pin.resolved ? "checkmark.circle.fill" : "pin.fill")
-                        .foregroundStyle(pin.resolved ? Color.green : model.theme.beacon.swiftUIColor)
-                    VStack(alignment: .leading) {
-                        Text(pin.text).strikethrough(pin.resolved)
-                        Text("\(pin.authorName) · \(pin.createdAt.formatted(date: .omitted, time: .shortened))").font(.caption2).foregroundStyle(.secondary)
+                HStack(alignment: .top, spacing: 8) {
+                    Button {
+                        model.resolvePin(pin.id, resolved: !pin.resolved)
+                    } label: {
+                        Image(systemName: pin.resolved ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(pin.resolved ? Color.green : model.theme.beacon.swiftUIColor)
                     }
-                    Spacer()
-                    Button(pin.resolved ? "Reopen" : "Resolve") { model.resolvePin(pin.id, resolved: !pin.resolved) }
-                        .font(.caption)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(pin.resolved ? "Reopen pin" : "Resolve pin")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(pin.text).strikethrough(pin.resolved)
+                        Text("\(pin.authorName) · \(pin.createdAt.formatted(date: .omitted, time: .shortened))" + (pin.line.map { " · line \($0)" } ?? ""))
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 4)
+                    if model.canDelete(pin) {
+                        Button(role: .destructive) { model.deletePin(pin.id) } label: { Image(systemName: "trash") }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("Delete pin")
+                    }
                 }
             }
             HStack {
@@ -157,7 +174,27 @@ struct InspectorView: View {
                     .onSubmit { addPin(node) }
                 Button("Pin") { addPin(node) }.disabled(pinText.trimmingCharacters(in: .whitespaces).isEmpty)
             }
+            if model.pins.count > model.pins(for: node.id).count {
+                Text("\(model.pins.count) pins in total across the project.").font(.caption2).foregroundStyle(.secondary)
+            }
         }
+    }
+
+    /// Markdown export: share sheet on iPad/visionOS, save panel (fileExporter) on macOS.
+    @ViewBuilder
+    private var exportControl: some View {
+#if os(macOS)
+        Button { showExporter = true } label: { Label("Export pins", systemImage: "square.and.arrow.up") }
+            .controlSize(.small)
+            .fileExporter(isPresented: $showExporter, item: model.pinsMarkdown, contentTypes: [.plainText], defaultFilename: model.pinsFilename) { result in
+                if case .failure(let error) = result { model.statusMessage = error.localizedDescription }
+            }
+#else
+        ShareLink(item: model.pinsMarkdown, subject: Text("Review pins"), message: Text(model.pinsFilename), preview: SharePreview(model.pinsFilename, image: Image(systemName: "pin.fill"))) {
+            Label("Export pins", systemImage: "square.and.arrow.up")
+        }
+        .controlSize(.small)
+#endif
     }
 
     private func addPin(_ node: CodeNode) {

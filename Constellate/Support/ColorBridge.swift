@@ -41,4 +41,24 @@ extension RGBA {
 
     static let white = RGBA(hex: 0xFFFFFF)
     static let black = RGBA(hex: 0x000000)
+
+    /// Euclidean RGB distance (0…√3).
+    func distance(to other: RGBA) -> Double {
+        let dr = r - other.r, dg = g - other.g, db = b - other.b
+        return (dr * dr + dg * dg + db * db).squareRoot()
+    }
+}
+
+extension PlatformColor {
+    /// sRGB components, or nil for pattern / catalog colours that cannot be converted.
+    var rgba: RGBA? {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+#if canImport(UIKit)
+        guard getRed(&r, green: &g, blue: &b, alpha: &a) else { return nil }
+#else
+        guard let converted = usingColorSpace(.sRGB) else { return nil }
+        converted.getRed(&r, green: &g, blue: &b, alpha: &a)
+#endif
+        return RGBA(r: Double(r), g: Double(g), b: Double(b), a: Double(a))
+    }
 }

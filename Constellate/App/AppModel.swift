@@ -52,6 +52,12 @@ final class AppModel {
     private(set) var pinnedBeacons: Set<NodeID> = []
     private(set) var summonedNodeID: NodeID?
     var pointers: [ParticipantID: SIMD3<Float>] = [:]
+    /// Local laser pointer hit position (rendered by the scene controller, broadcast at ≤ 10 Hz).
+    private(set) var localPointer: SIMD3<Float>?
+    private var lastPointerSend: ContinuousClock.Instant = .now
+    /// Incremented when a remote summon / tour step should move this member's view (follow-host).
+    private(set) var followEventToken = 0
+    private(set) var guideTargetID: NodeID?
 
     // MARK: Host
 
@@ -107,10 +113,22 @@ final class AppModel {
     var showProjectImporter = false
     /// Incremented by ⌘F so the navigator focuses its search field.
     var searchFocusToken = 0
+    /// Read replies aloud (persisted).
+    var speakReplies: Bool {
+        didSet {
+            UserDefaults.standard.set(speakReplies, forKey: "speakReplies")
+            if !speakReplies { hostVoice.stop() }
+        }
+    }
+    /// Hides transient chrome (placeholders, toasts) for clean screenshots (persisted).
+    var screenshotMode: Bool {
+        didSet { UserDefaults.standard.set(screenshotMode, forKey: "screenshotMode") }
+    }
 
     // MARK: Services
 
     let hostAI = HostAI()
+    let hostVoice = HostVoice()
     let speech = SpeechListener()
     let session = SessionCoordinator()
     private let router = VoiceCommandRouter()
@@ -120,6 +138,9 @@ final class AppModel {
     // MARK: - Init
 
     init() {
+        let defaults = UserDefaults.standard
+        speakReplies = defaults.object(forKey: "speakReplies") == nil ? true : defaults.bool(forKey: "speakReplies")
+        screenshotMode = defaults.bool(forKey: "screenshotMode")
         let sample = SampleGraph.orbitNotes()
         graph = sample
         layout = ConstellationLayoutEngine().layout(sample)
@@ -134,6 +155,14 @@ final class AppModel {
         }
         speech.onWakeWord = { [weak self] in
             self?.hostActivity = .listening
+        }
+        hostVoice.onStart = { [weak self] in
+            self?.speakingTask?.cancel()
+            self?.hostActivity = .speaking
+        }
+        hostVoice.onFinish = { [weak self] in
+            guard let self, self.hostActivity == .speaking else { return }
+            self.hostActivity = .idle
         }
         hostAI.prewarm()
         hostTranscript.append(TranscriptEntry(role: .system, text: "Host ready · \(hostAI.backend.label)"))
@@ -268,7 +297,17 @@ final class AppModel {
         summonedNodeID = id
         selectedNodeID = id
         addBeacon(id)
-        if broadcast { session.send(.summon(nodeID: id, by: by ?? localParticipant.id, reason: reason)) }
+        if broadcast {
+            session.send(.summon(nodeID: id, by: by ?? localParticipant.id, reason: reason))
+        } else if followHost && !session.isHost {
+            // Remote summon while following: move this member's view to the node.
+            noteFollowEvent(id)
+        }
+    }
+
+    private func noteFollowEvent(_ id: NodeID) {
+        guideTargetID = id
+        followEventToken += 1
     }
 
     func clearSummon() {
@@ -322,18 +361,55 @@ final class AppModel {
             hostTranscript.append(TranscriptEntry(role: .system, text: "Sent to the host…"))
             return
         }
-        hostActivity = .thinking
+        beginThinking()
         var situation: [String] = []
         if let docked = dockedCluster { situation.append("The host orb is docked in cluster \"\(docked.title)\" (id \(docked.id)); prefer answers about it.") }
         if let selected = selectedNodeID, let node = graph.node(selected) { situation.append("The person has \(node.name) (id \(selected.raw)) selected.") }
-        let reply = await hostAI.chat(trimmed, situation: situation.joined(separator: " "), graph: graph, clusters: clusters, docked: dockedCluster)
-        appendHostSpeech(reply.text, nodeIDs: reply.nodeIDs, broadcast: true)
+        // Streaming: one host bubble is created up front and filled in as tokens arrive.
+        let entryID = beginHostEntry()
+        let reply = await hostAI.streamChat(trimmed, situation: situation.joined(separator: " "), graph: graph, clusters: clusters, docked: dockedCluster) { [weak self] partial in
+            self?.updateHostEntry(entryID, text: partial)
+        }
+        finishHostEntry(entryID, text: reply.text, nodeIDs: reply.nodeIDs, broadcast: true)
+    }
+
+    /// Stops any ongoing speech and marks the host as thinking.
+    private func beginThinking() {
+        hostVoice.stop()
+        speakingTask?.cancel()
+        hostActivity = .thinking
+    }
+
+    private func beginHostEntry() -> UUID {
+        let entry = TranscriptEntry(role: .host, text: "")
+        hostTranscript.append(entry)
+        return entry.id
+    }
+
+    private func updateHostEntry(_ id: UUID, text: String) {
+        guard let index = hostTranscript.lastIndex(where: { $0.id == id }) else { return }
+        hostTranscript[index].text = text
+        // First token: thinking → speaking while the rest streams in.
+        if !text.isEmpty && hostActivity == .thinking { hostActivity = .speaking }
+    }
+
+    private func finishHostEntry(_ id: UUID, text: String, nodeIDs: [NodeID], broadcast: Bool) {
+        if let index = hostTranscript.lastIndex(where: { $0.id == id }) {
+            hostTranscript[index].text = text
+            hostTranscript[index].nodeIDs = nodeIDs
+        } else {
+            hostTranscript.append(TranscriptEntry(role: .host, text: text, nodeIDs: nodeIDs))
+        }
+        if hostTranscript.count > 200 { hostTranscript.removeFirst(hostTranscript.count - 200) }
+        if !nodeIDs.isEmpty { highlightedNodeIDs = Set(nodeIDs) }
+        if broadcast && session.isHost { session.send(.hostSpeech(text: text, nodeIDs: nodeIDs)) }
+        startSpeaking(text)
     }
 
     func askHostAboutSelection() async {
         guard let id = selectedNodeID, let node = graph.node(id) else { return }
         hostTranscript.append(TranscriptEntry(role: .user, text: "Explain \(node.name)"))
-        hostActivity = .thinking
+        beginThinking()
         let reply = await hostAI.explain(id, graph: graph)
         appendHostSpeech(reply.text, nodeIDs: reply.nodeIDs, broadcast: true)
     }
@@ -341,7 +417,7 @@ final class AppModel {
     func reviewSelection() async {
         guard let id = selectedNodeID, let node = graph.node(id) else { return }
         hostTranscript.append(TranscriptEntry(role: .user, text: "Review \(node.name)"))
-        hostActivity = .thinking
+        beginThinking()
         let reply = await hostAI.review(id, graph: graph, projectRoot: projectRootURL)
         appendHostSpeech(reply.text, nodeIDs: reply.nodeIDs, broadcast: true)
     }
@@ -354,14 +430,41 @@ final class AppModel {
         if broadcast && session.isHost {
             session.send(.hostSpeech(text: text, nodeIDs: nodeIDs))
         }
+        startSpeaking(text)
+    }
+
+    /// TTS when enabled (presence follows the utterance), else an estimated speaking duration.
+    private func startSpeaking(_ text: String) {
         hostActivity = .speaking
         speakingTask?.cancel()
+        if speakReplies && hostVoice.isAvailable && !text.isEmpty {
+            hostVoice.speak(text)
+            // Safety net in case the synthesizer never calls back (e.g. muted simulator).
+            speakingTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(1.5))
+                guard let self, !Task.isCancelled, !self.hostVoice.isSpeaking else { return }
+                if self.hostActivity == .speaking { self.hostActivity = .idle }
+            }
+            return
+        }
         let seconds = min(12, max(1.5, Double(text.count) * 0.045))
         speakingTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(seconds))
             guard let self, !Task.isCancelled else { return }
             if self.hostActivity == .speaking { self.hostActivity = .idle }
         }
+    }
+
+    // MARK: - Laser pointer
+
+    /// Local pointer hit (nil = pointer released). Broadcasts `.pointer` at most 10× per second.
+    func setLocalPointer(_ position: SIMD3<Float>?) {
+        localPointer = position
+        guard let position else { return }
+        let now = ContinuousClock.now
+        guard now - lastPointerSend >= .milliseconds(100) else { return }
+        lastPointerSend = now
+        session.send(.pointer(by: localParticipant.id, position: position))
     }
 
     // MARK: - Voice
@@ -375,7 +478,7 @@ final class AppModel {
         switch router.parse(text) {
         case .find(let query):
             hostTranscript.append(TranscriptEntry(role: .user, text: "Find: \(query)"))
-            hostActivity = .thinking
+            beginThinking()
             let reply = await hostAI.locate(query, graph: graph)
             if let first = reply.nodeIDs.first {
                 summon(first, reason: query)
@@ -414,7 +517,7 @@ final class AppModel {
     // MARK: - Tour
 
     func startTour() async {
-        hostActivity = .thinking
+        beginThinking()
         let planned = await hostAI.planTour(graph: graph)
         setTour(planned, broadcast: true)
         goToStep(0, broadcast: true)
@@ -448,10 +551,9 @@ final class AppModel {
         if broadcast && session.isHost {
             session.send(.tourStep(step))
             appendHostSpeech("\(stop.title): \(stop.narration)", nodeIDs: [stop.nodeID], broadcast: true)
-        } else if !broadcast {
-            appendHostSpeech("\(stop.title): \(stop.narration)", nodeIDs: [stop.nodeID], broadcast: false)
         } else {
             appendHostSpeech("\(stop.title): \(stop.narration)", nodeIDs: [stop.nodeID], broadcast: false)
+            if !broadcast && followHost && !session.isHost { noteFollowEvent(stop.nodeID) }
         }
     }
 
@@ -481,6 +583,19 @@ final class AppModel {
     }
 
     func pins(for nodeID: NodeID) -> [ReviewPin] { pins.filter { $0.nodeID == nodeID } }
+
+    /// Host or the pin's author may delete it.
+    func canDelete(_ pin: ReviewPin) -> Bool { session.isHost || pin.author == localParticipant.id }
+
+    /// Removes a pin locally. Peers receive `.resolvePin(resolved: true)` (the wire format has no delete case).
+    func deletePin(_ id: UUID) {
+        guard let pin = pins.first(where: { $0.id == id }), canDelete(pin) else { return }
+        pins.removeAll { $0.id == id }
+        session.send(.resolvePin(id, resolved: true))
+    }
+
+    var pinsMarkdown: String { PinsExporter.markdown(pins: pins, graph: graph) }
+    var pinsFilename: String { PinsExporter.suggestedFilename(for: graph) }
 
     // MARK: - Participants
 
