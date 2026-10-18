@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" font-family="SF Pro Text, Helvetica, Arial, sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #0B0F1F; }
+      .t { fill: #F4F6FB; font-size: 16px; }
+      .ts { fill: #F4F6FB; font-size: 14px; }
+      .tb { fill: #F4F6FB; font-size: 18px; font-weight: 600; }
+      .th { fill: #F4F6FB; font-size: 26px; font-weight: 700; }
+      .muted { fill: #8A93A6; font-size: 14px; }
+      .mono { fill: #F4F6FB; font-size: 14px; font-family: SF Mono, Menlo, monospace; }
+      .shell { fill: none; stroke: #2A3150; stroke-width: 1.5; }
+      .shell-lbl { fill: #8A93A6; font-size: 13px; }
+      .sector { fill: none; stroke-width: 1.2; opacity: 0.9; }
+      .node { stroke: #0B0F1F; stroke-width: 1; }
+      .edge { stroke: #6B7390; stroke-width: 1; opacity: 0.7; }
+      .band { stroke-width: 2; opacity: 0.85; }
+      .panel { fill: #121733; stroke: #2A3150; stroke-width: 1.5; rx: 12; }
+      .arrow { stroke: #FFD166; stroke-width: 2; fill: none; marker-end: url(#ah); }
+      .guide { stroke: #8A93A6; stroke-width: 1; stroke-dasharray: 4 4; fill: none; }
+    </style>
+    <marker id="ah" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,5 L0,10 z" fill="#FFD166"/></marker>
+  </defs>
+  <rect class="bg" width="1200" height="760"/>
+  <text class="th" x="40" y="48">4D 별자리 레이아웃 — ConstellationLayoutEngine</text>
+  <text class="muted" x="40" y="72">x,z = 계층 방사형 셸 + 가중 섹터 · y = 아키텍처 레이어 밴드 · w = 시간(0…1) → 타임 다이얼(−1…1)로 3D 투영</text>
+
+  <!-- ===== Top-down view ===== -->
+  <rect class="panel" x="40" y="92" width="560" height="640"/>
+  <text class="tb" x="56" y="120">위에서 본 모습 (x, z) — 셸과 섹터</text>
+
+  <g transform="translate(320,420)">
+    <!-- shells -->
+    <circle class="shell" r="60"/>
+    <circle class="shell" r="135"/>
+    <circle class="shell" r="210"/>
+    <circle class="shell" r="285"/>
+    <text class="shell-lbl" x="48" y="60">r₁ = 1.6 m</text>
+    <text class="shell-lbl" x="104" y="124">r₂ = 2.85 m</text>
+    <text class="shell-lbl" x="156" y="174">r₃ = 4.1 m</text>
+    <text class="shell-lbl" x="196" y="-216">r₄ = 5.35 m</text>
+
+    <!-- root -->
+    <circle class="node" r="9" fill="#F4F6FB"/>
+    <text class="ts" x="-12" y="30">root</text>
+
+    <!-- sector A (presentation, cyan) 0°..150° -->
+    <path class="sector" stroke="#5EE1FF" d="M0,0 L60,0 A60,60 0 0,0 -51.96,-30 Z"/>
+    <path class="sector" stroke="#5EE1FF" d="M0,0 L135,0 A135,135 0 0,0 -116.9,-67.5 Z" opacity="0.35"/>
+    <path class="sector" stroke="#5EE1FF" d="M0,0 L210,0 A210,210 0 0,0 -181.9,-105 Z" opacity="0.2"/>
+    <!-- sector B (domain, lavender) 150°..240° -->
+    <path class="sector" stroke="#C9B6FF" d="M0,0 L-51.96,-30 A60,60 0 0,0 -30,51.96 Z"/>
+    <path class="sector" stroke="#C9B6FF" d="M0,0 L-116.9,-67.5 A135,135 0 0,0 -67.5,116.9 Z" opacity="0.35"/>
+    <!-- sector C (data, amber) 240°..310° -->
+    <path class="sector" stroke="#FFD166" d="M0,0 L-30,51.96 A60,60 0 0,0 38.57,45.96 Z"/>
+    <path class="sector" stroke="#FFD166" d="M0,0 L-67.5,116.9 A135,135 0 0,0 86.8,103.4 Z" opacity="0.35"/>
+    <!-- sector D (test, lime) 310°..360° -->
+    <path class="sector" stroke="#B8FF7A" d="M0,0 L38.57,45.96 A60,60 0 0,0 60,0 Z"/>
+
+    <!-- shell-1 nodes (folders) at sector mids -->
+    <circle class="node" cx="15.5" cy="-57.96" r="8" fill="#5EE1FF"/>
+    <circle class="node" cx="-60" cy="0" r="8" fill="#C9B6FF"/>
+    <circle class="node" cx="-10.4" cy="59.1" r="8" fill="#FFD166"/>
+    <circle class="node" cx="52" cy="30" r="8" fill="#B8FF7A"/>
+
+    <!-- shell-2 nodes (files) in sub-sectors -->
+    <g fill="#5EE1FF">
+      <circle class="node" cx="127" cy="-46" r="6"/>
+      <circle class="node" cx="95" cy="-96" r="6"/>
+      <circle class="node" cx="42" cy="-128" r="6"/>
+      <circle class="node" cx="-23" cy="-133" r="6"/>
+      <circle class="node" cx="-85" cy="-105" r="6"/>
+    </g>
+    <g fill="#C9B6FF">
+      <circle class="node" cx="-134" cy="-20" r="6"/>
+      <circle class="node" cx="-128" cy="42" r="6"/>
+      <circle class="node" cx="-100" cy="90" r="6"/>
+    </g>
+    <g fill="#FFD166">
+      <circle class="node" cx="-40" cy="129" r="6"/>
+      <circle class="node" cx="30" cy="131" r="6"/>
+      <circle class="node" cx="90" cy="100" r="6"/>
+    </g>
+    <!-- shell-3 nodes (types) -->
+    <g fill="#5EE1FF">
+      <circle class="node" cx="200" cy="-64" r="5"/>
+      <circle class="node" cx="170" cy="-123" r="5"/>
+      <circle class="node" cx="110" cy="-179" r="5"/>
+      <circle class="node" cx="40" cy="-206" r="5"/>
+      <circle class="node" cx="-60" cy="-201" r="5"/>
+      <circle class="node" cx="-140" cy="-157" r="5"/>
+    </g>
+    <g fill="#C9B6FF">
+      <circle class="node" cx="-208" cy="-30" r="5"/>
+      <circle class="node" cx="-196" cy="75" r="5"/>
+    </g>
+    <g fill="#FFD166">
+      <circle class="node" cx="-110" cy="179" r="5"/>
+      <circle class="node" cx="20" cy="209" r="5"/>
+    </g>
+
+    <!-- tree edges root → shell1 -->
+    <line class="edge" x1="0" y1="0" x2="15.5" y2="-57.96"/>
+    <line class="edge" x1="0" y1="0" x2="-60" y2="0"/>
+    <line class="edge" x1="0" y1="0" x2="-10.4" y2="59.1"/>
+    <line class="edge" x1="0" y1="0" x2="52" y2="30"/>
+    <!-- a few relation edges (pink = references) -->
+    <path d="M95,-96 Q0,-40 -128,42" stroke="#FF8FD1" stroke-width="1.2" fill="none" opacity="0.8"/>
+    <path d="M-100,90 Q-20,60 30,131" stroke="#FFD166" stroke-width="1.2" fill="none" opacity="0.8"/>
+
+    <!-- sector annotation -->
+    <path class="guide" d="M0,0 L270,0"/>
+    <path class="guide" d="M0,0 L-233.8,-135"/>
+    <path d="M100,0 A100,100 0 0,0 -86.6,-50" stroke="#5EE1FF" stroke-width="1" fill="none" stroke-dasharray="3 3"/>
+  </g>
+  <text class="ts" x="56" y="144" fill="#5EE1FF">점선 호 = presentation 폴더의 섹터 [s, e] ∝ weight(subtree) · 형제 사이 gap 0.04 rad</text>
+
+  <rect x="48" y="626" width="544" height="100" fill="#0B0F1F" opacity="0.88" rx="8"/>
+  <text class="mono" x="56" y="648">weight(n) = Σ_subtree max(1, lineCount)</text>
+  <text class="mono" x="56" y="670">r(d) = 0 (d=0) · baseRadius + (d−1)·shellSpacing (d≥1)</text>
+  <text class="mono" x="56" y="692">θ = (s+e)/2 ·  x = r·cos θ ·  z = −r·sin θ</text>
+  <text class="mono" x="56" y="714">radius = clamp(0.08 + √lines / 90, 0.08, 0.32)</text>
+
+  <!-- ===== Side view ===== -->
+  <rect class="panel" x="620" y="92" width="540" height="380"/>
+  <text class="tb" x="636" y="120">옆에서 본 모습 (y) — 레이어 밴드</text>
+
+  <g transform="translate(640,140)">
+    <!-- axis -->
+    <line x1="40" y1="0" x2="40" y2="300" stroke="#2A3150" stroke-width="1.5"/>
+    <line x1="40" y1="300" x2="500" y2="300" stroke="#2A3150" stroke-width="1.5"/>
+    <text class="shell-lbl" x="46" y="298">y = 0 (바닥)</text>
+    <!-- bands: y(m) → px: 300 - y*120 -->
+    <line class="band" stroke="#5EE1FF" x1="60" y1="48" x2="500" y2="48"/>
+    <text class="ts" x="64" y="42" fill="#5EE1FF">presentation 2.10 m</text>
+    <line class="band" stroke="#C9B6FF" x1="60" y1="108" x2="500" y2="108"/>
+    <text class="ts" x="64" y="102" fill="#C9B6FF">domain 1.60 m</text>
+    <line class="band" stroke="#A7ADBF" x1="60" y1="144" x2="500" y2="144" stroke-dasharray="4 4"/>
+    <text class="ts" x="64" y="138" fill="#A7ADBF">unknown 1.30 m</text>
+    <line class="band" stroke="#FFD166" x1="60" y1="162" x2="500" y2="162"/>
+    <text class="ts" x="330" y="178" fill="#FFD166">data 1.15 m</text>
+    <line class="band" stroke="#8A93A6" x1="60" y1="210" x2="500" y2="210"/>
+    <text class="ts" x="64" y="204" fill="#8A93A6">infrastructure 0.75 m</text>
+    <line class="band" stroke="#B8FF7A" x1="60" y1="240" x2="500" y2="240"/>
+    <text class="ts" x="64" y="234" fill="#B8FF7A">test 0.50 m</text>
+    <!-- root -->
+    <circle class="node" cx="40" cy="120" r="8" fill="#F4F6FB"/>
+    <text class="shell-lbl" x="4" y="124">root</text>
+    <text class="shell-lbl" x="4" y="140">1.5 m</text>
+    <!-- jitter band around presentation -->
+    <rect x="60" y="6" width="440" height="84" fill="#5EE1FF" opacity="0.06"/>
+    <text class="shell-lbl" x="380" y="20">± 0.35 m 지터 (hash(id))</text>
+    <!-- sample nodes with jitter -->
+    <g fill="#5EE1FF"><circle class="node" cx="130" cy="30" r="6"/><circle class="node" cx="200" cy="66" r="6"/><circle class="node" cx="270" cy="52" r="6"/><circle class="node" cx="350" cy="78" r="6"/><circle class="node" cx="430" cy="38" r="6"/></g>
+    <g fill="#C9B6FF"><circle class="node" cx="160" cy="96" r="6"/><circle class="node" cx="240" cy="124" r="6"/><circle class="node" cx="320" cy="100" r="6"/></g>
+    <g fill="#FFD166"><circle class="node" cx="180" cy="170" r="6"/><circle class="node" cx="290" cy="150" r="6"/><circle class="node" cx="400" cy="176" r="6"/></g>
+    <g fill="#8A93A6"><circle class="node" cx="220" cy="218" r="6"/><circle class="node" cx="360" cy="200" r="6"/></g>
+    <g fill="#B8FF7A"><circle class="node" cx="140" cy="248" r="6"/><circle class="node" cx="300" cy="232" r="6"/><circle class="node" cx="450" cy="250" r="6"/></g>
+    <text class="shell-lbl" x="360" y="294">→ 반지름(셸) 방향</text>
+  </g>
+
+  <text class="mono" x="636" y="458">y = layerHeights[layer] + (hash01(id) − 0.5)·2·0.35</text>
+
+  <!-- ===== Time dial ===== -->
+  <rect class="panel" x="620" y="486" width="540" height="246"/>
+  <text class="tb" x="636" y="514">w = 시간 → 타임 다이얼 투영</text>
+
+  <g transform="translate(640,526)">
+    <!-- dial -->
+    <path d="M30,120 A90,90 0 0,1 210,120" fill="none" stroke="#2A3150" stroke-width="10" stroke-linecap="round"/>
+    <path d="M120,30 A90,90 0 0,1 210,120" fill="none" stroke="#FFD166" stroke-width="10" stroke-linecap="round" opacity="0.8"/>
+    <text class="ts" x="8" y="134">−1</text>
+    <text class="ts" x="110" y="18">0</text>
+    <text class="ts" x="206" y="134">+1</text>
+    <line x1="120" y1="120" x2="186" y2="58" stroke="#F4F6FB" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="120" cy="120" r="6" fill="#F4F6FB"/>
+    <text class="shell-lbl" x="88" y="104">dial +0.8</text>
+
+    <!-- displacement sketch -->
+    <text class="shell-lbl" x="256" y="22">dial &gt; 0: 최근(t&gt;0) 바깥·위로 / 오래된(t&lt;0) 안쪽·아래로</text>
+    <circle cx="280" cy="96" r="4" fill="#8A93A6"/>
+    <text class="shell-lbl" x="268" y="118">원점</text>
+    <circle class="node" cx="340" cy="90" r="7" fill="#8A93A6"/>
+    <text class="shell-lbl" x="322" y="116">t &lt; 0</text>
+    <circle class="node" cx="380" cy="76" r="7" fill="#5EE1FF" opacity="0.45"/>
+    <text class="shell-lbl" x="298" y="80">base</text>
+    <path class="arrow" d="M380,76 L450,56"/>
+    <circle class="node" cx="456" cy="54" r="7" fill="#5EE1FF"/>
+    <text class="shell-lbl" x="376" y="100">push = dir·t·dial·D</text>
+    <text class="shell-lbl" x="400" y="38">+ lift 35 %</text>
+  </g>
+
+  <text class="mono" x="636" y="676">w = (modifiedAt − min)/(max − min) · t = w − 0.5</text>
+  <text class="mono" x="636" y="698">dial = clamp(timeDial, −1, 1) · D = timeDepth (1.2 m)</text>
+  <text class="mono" x="636" y="720">P3 = (x,y,z) + dir(x,0,z)·t·dial·D + (0, 0.35·t·dial·D, 0)</text>
+</svg>
