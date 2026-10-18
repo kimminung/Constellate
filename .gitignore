@@ -23,4 +23,4 @@ Blender/tmp/
 __pycache__/
 
 # accidental relative-path cache dir
-~/
+**/~/
