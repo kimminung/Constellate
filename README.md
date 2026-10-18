@@ -13,7 +13,7 @@ Constellate turns a whole project into a 4-D "code constellation" inside an imme
   <img src="https://img.shields.io/badge/Xcode-27-blue?logo=xcode" alt="Xcode 27"/>
   <img src="https://img.shields.io/badge/on--device%20AI-FoundationModels-7F7CFF" alt="FoundationModels"/>
   <img src="https://img.shields.io/badge/Kit%20tests-54%20passing-brightgreen" alt="54 tests"/>
-  <img src="https://img.shields.io/badge/status-builds%20on%203%20platforms%20%C2%B7%20device%20validation%20pending-lightgrey" alt="status"/>
+  <img src="https://img.shields.io/badge/status-feature%20complete%20on%203%20platforms%20%C2%B7%20device%20validation%20pending-lightgrey" alt="status"/>
   <img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="Apache-2.0"/>
 </p>
 
@@ -24,9 +24,9 @@ Constellate turns a whole project into a 4-D "code constellation" inside an imme
 - **Project ingest, on device** — point at a folder (≤ 4000 files); `ProjectIngestor` builds a `CodeGraph` (module → folder → file → type → member) with imports / inherits / references / calls edges. Swift symbols are extracted with a dependency-free scanner; `CodeGraph+Analysis` gives stats, hubs, entry points and busiest files.
 - **4-D constellation layout** — hierarchical radial shells (1.6 m + 1.25 m per depth), weighted angular sectors that preserve the tree, architecture-layer height bands, card radius `0.08 + √lines/90` m, and a continuous **time dial** (−1…1) that bulges recently changed code outward. Deterministic; same project, same sky.
 - **Orbs for any unit of code** — group by folder / file / type / feature (`ClusterGranularity`); each cluster is a glass orb at its centroid that unfolds into code cards.
-- **Host AI orb (dock / undock)** — the host's `FoundationModels` session is embodied as a Siri-like orb with five tools: `LocateCode`, `ExplainNode`, `SummarizeCluster`, `ReviewNode`, `PlanTour`, answering with `@Generable` `LocateAnswer` / `TourAnswer`. Tap a cluster to dock the orb into it; drag it out to free it. `HeuristicHost` keeps every feature working when the model is unavailable.
-- **Voice summon** — "Constellate" / "콘스텔" wake word via `SpeechAnalyzer`; `VoiceCommandRouter` picks the intent, the found card flies to you, a 3 m beacon rises at its origin, and the beacon is synchronized to all participants.
-- **Meetings over SharePlay** — `GroupActivity` host + members, three modes (analysis / review / lecture), **review pins**, **guided tours** with follow-host, stylized bust avatars on a stage ring. Members ask the host AI through the `hostSpeech("ask: …")` relay.
+- **Host AI orb (dock / undock)** — the host's `FoundationModels` session is embodied as a Siri-like orb with five tools: `LocateCode`, `ExplainNode`, `SummarizeCluster`, `ReviewNode`, `PlanTour`, answering with `@Generable` `LocateAnswer` / `TourAnswer`; free-form chat streams token by token (`HostAI.streamChat`). Tap a cluster to dock the orb into it; drag it out to free it. `HeuristicHost` keeps every feature working when the model is unavailable.
+- **Voice summon + spoken replies** — "Constellate" / "콘스텔" wake word via `SpeechAnalyzer`; `VoiceCommandRouter` picks the intent, the found card flies to you, a 3 m beacon rises at its origin, and the beacon is synchronized to all participants. `HostVoice` reads replies aloud (ko-KR / en-US auto, toggle persisted).
+- **Meetings over SharePlay** — `GroupActivity` host + members, three modes (analysis / review / lecture), **laser pointer** (long-press + drag on iPad/Mac, pinch-hold on visionOS), **review pins** with Markdown export, **guided tours** with follow-host (the camera flies to each summoned/toured node on iPad/Mac; a glowing guide arrow on visionOS), stylized bust avatars retinted in each participant's accent on a stage ring. Members ask the host AI through the `hostSpeech("ask: …")` relay.
 - **Rule-based themes** — `ConstellateTheme.dark` and `tinted(hue:)` presets (Ocean, Moss, Ember, Nebula). Environment stays dark and desaturated (chroma ≤ 0.16, L ≤ 0.30) and automatically avoids code hues; `validate()` enforces it in tests.
 - **Privacy by construction** — parsing, AI inference and speech recognition all run on device. SharePlay carries node IDs, text and numbers only; source bodies are never transmitted.
 
@@ -77,7 +77,7 @@ One multiplatform app target + the pure-Swift `ConstellateKit` package (Foundati
 
 ![Architecture](Docs/diagrams/architecture.svg)
 
-- **Constellate app** — `App/` (`ConstellateApp`, `AppModel`), `Views/` (Dashboard, Navigator, Inspector + CodeInspectorWindow, CodeCard, HostChat, ThemePicker, TimeDial, Participants, TourBar, VoiceButton), `Spatial/` (ConstellationSceneController, CodeNodeEntity, OrbEntity, BeaconEntity, AvatarEntity, EnvironmentEntity, EdgeRenderer, MeshFactory, TextureFactory, AssetLoader), `Platform/` (OrbitCameraRig, ConstellationViewport, ConstellationImmersiveView + HeadPoseProvider, ScrollWheelMonitor), `AI/` (HostAI, HeuristicHost), `Voice/` (SpeechListener, VoiceCommandRouter), `Session/` (ConstellateActivity, SessionCoordinator), `Support/` (ColorBridge, SourceProvider, SyntaxHighlighter).
+- **Constellate app** — `App/` (`ConstellateApp`, `AppModel`), `Views/` (Dashboard, Navigator, Inspector + CodeInspectorWindow, CodeCard, HostChat, ThemePicker, TimeDial, Participants, TourBar, VoiceButton), `Spatial/` (ConstellationSceneController, CodeNodeEntity, OrbEntity, BeaconEntity, AvatarEntity, EnvironmentEntity, EdgeRenderer, MeshFactory, TextureFactory, AssetLoader), `Platform/` (OrbitCameraRig, ConstellationViewport, ConstellationImmersiveView + HeadPoseProvider, ScrollWheelMonitor), `AI/` (HostAI, HeuristicHost), `Voice/` (SpeechListener, VoiceCommandRouter, HostVoice), `Session/` (ConstellateActivity, SessionCoordinator), `Support/` (ColorBridge, SourceProvider, SyntaxHighlighter, PinsExporter).
 - **ConstellateKit** — `CodeGraph` (+Analysis), `ProjectIngestor` / `SwiftSymbolExtractor`, `ConstellationLayoutEngine` / `ConstellationLayout`, `ClusterBuilder`, `CodeSearcher`, `TourBuilder`, `ConstellateTheme`, session models (`Participant`, `ReviewPin`, `LearningTour`, `ConstellateMessage`), `SampleGraph.orbitNotes()` (47 files, 15 folders, 50+ types).
 
 More diagrams: [data flow](Docs/diagrams/dataflow.svg) · [4-D layout](Docs/diagrams/layout-4d.svg) · [session topology](Docs/diagrams/session-topology.svg) · [host orb states](Docs/diagrams/orb-states.svg).
@@ -132,15 +132,15 @@ Material slots are fixed (`Core`, `Band0…Band3`, `Shell`, `Accent`, `Glass`, `
 
 ## Roadmap
 
-From `Docs/TASKS-Constellate.md` (2026-10-19):
+From `Docs/TASKS-Constellate.md` (2026-10-19, after PR #1 and the second app round):
 
 - [x] **M0** — project skeleton, `ConstellateKit` API contract, theme rules + tests, VISION / PRDs / diagrams, Blender pipeline, first build on all three platforms
 - [x] **M1** — Kit: symbol extractor, ingestor, radial shell layout, clusters (4 granularities), EN/KO structural search, tour builder, Orbit Notes sample, graph analysis — 54 tests pass
 - [x] **M2** — constellation scene: node entities + textures, edges, environment, orbit camera (iPad/Mac), immersive space (visionOS), time dial, themes
 - [x] **M3** — cluster orbs, host orb presence, dock / undock, navigator, inspector + code window
-- [ ] **M4** — host AI: session, five tools, `@Generable` answers, fallback, context recovery *(implemented; **no streaming yet**; real-device Apple Intelligence validation pending)*
-- [ ] **M5** — voice: `SpeechAnalyzer` listener, wake words, intent router, beacons, summon *(implemented; TTS and real-device validation pending; one `installTap` deprecation warning)*
-- [ ] **M6** — meetings: GroupActivities, roles, `ask:` relay, follow-host, pins, tours, avatars *(implemented with simulated members; **laser pointer not yet bound to a gesture**, avatar `Accent` material not yet retinted, graph-chunk sync missing; 2-device validation pending)*
+- [ ] **M4** — host AI: session, five tools, `@Generable` answers, fallback, context recovery, **streaming chat replies** *(implemented; explain/review/summarize tool replies still arrive whole; real-device Apple Intelligence validation pending)*
+- [ ] **M5** — voice: `SpeechAnalyzer` listener, wake words, intent router, beacons, summon, **TTS (`HostVoice`)** *(implemented; real-device validation pending; one `installTap` deprecation warning)*
+- [ ] **M6** — meetings: GroupActivities, roles, `ask:` relay, **follow-host camera / guide arrow**, **laser pointer gesture**, **pins with resolve/delete + Markdown export**, tours, **accent-retinted avatars** *(implemented with simulated members; pointer release is not broadcast so a remote dart stays at its last spot; graph-chunk sync missing; 2-device validation pending)*
 - [ ] **M7** — performance budget (90 fps visionOS, 1500 edges, 2500 nodes / 400 textures), accessibility, macOS screenshot, device validation
 
 ## Credits
@@ -165,12 +165,13 @@ Apache License 2.0 — see [LICENSE](LICENSE). Copyright 2026 Minung Kim (Coulso
 
 프로젝트 폴더 하나를 열면 모든 파일과 타입이 규칙대로 공간에 배치됩니다 — 트리 깊이는 셸 반지름, 형제는 각도 섹터, 아키텍처 레이어는 높이, 최근 수정도는 네 번째 축(타임 다이얼)이 됩니다. 방장(host) 기기의 온디바이스 Apple Intelligence가 Siri형 오브로 떠 있다가, 코드 뭉치(클러스터) 오브를 탭하면 그 안으로 들어가 그 코드를 컨텍스트로 답하고, 잡아당기면 다시 분리되어 따라다닙니다. "콘스텔, @State를 쓰는 뷰 찾아줘"라고 말하면 해당 카드가 손 앞으로 출두하고, 원래 자리에 솟은 비콘이 SharePlay 참가자 모두에게 동기화됩니다. 코드는 기기를 떠나지 않습니다.
 
-### 현재 상태 (2026-10-19)
+### 현재 상태 (2026-10-19, PR #1 머지 + 2차 라운드)
 
 - `ConstellateKit` 구현·테스트 완료 — **54 테스트 / 9 스위트** 통과 (`cd ConstellateKit && swift test`)
 - 앱이 **macOS · iPadOS · visionOS** 3 플랫폼에서 빌드 (`Scripts/build.sh all` → exit=0 ×3)
+- 2차 라운드 반영: 채팅 응답 스트리밍(`HostAI.streamChat`), TTS(`HostVoice`, 음성 읽기 토글), 레이저 포인터 제스처(iPad/Mac 길게 누르기+드래그, visionOS 핀치 유지), USDZ `Accent` 재틴트, 리뷰 핀 resolve/삭제 + Markdown 내보내기(`PinsExporter`), follow-host 카메라 비행(iPad/Mac)·가이드 화살표(visionOS)
 - Blender 5.2 헤드리스 파이프라인으로 USDZ 7종(`usdchecker --arkit` 통과)·텍스처 3종·렌더 10종·앱 아이콘 생성
-- 남은 것: 응답 스트리밍, 레이저 포인터 제스처 바인딩, 아바타 `Accent` 재틴트, 그래프 청크 동기화, `installTap` 경고, **실기기 검증**(Vision Pro·2기기 SharePlay·Apple Intelligence), macOS 스크린샷(화면 기록 권한 대기)
+- 남은 것: 도구 응답(explain/review/summarize) 스트리밍, 포인터 해제 메시지(원격 다트 잔류), 그래프 청크 동기화, `installTap` 경고, **실기기 검증**(Vision Pro·2기기 SharePlay·Apple Intelligence), macOS 스크린샷(화면 기록 권한 대기)
 
 ### 핵심 기능
 

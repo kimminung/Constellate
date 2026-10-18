@@ -17,6 +17,9 @@ final class OrbitCameraRig {
 
     private var dragAnchor: (yaw: Float, pitch: Float)?
     private var magnifyAnchor: Float?
+    /// While the laser pointer is active, drags must not orbit the camera.
+    var isPointing = false
+    private var lastPosition: SIMD3<Float> = [0, 1.3, 7.5]
 
     init() {
         camera.name = "OrbitCamera"
@@ -30,6 +33,7 @@ final class OrbitCameraRig {
     }
 
     func drag(translation: CGSize) {
+        guard !isPointing else { return }
         beginDragIfNeeded()
         guard let anchor = dragAnchor else { return }
         yaw = anchor.yaw - Float(translation.width) * 0.006
@@ -69,6 +73,26 @@ final class OrbitCameraRig {
         desiredTarget = point
     }
 
+    /// Follow-host: look at `point` from `distance` metres (eased by `update`).
+    func flyTo(_ point: SIMD3<Float>, distance newDistance: Float) {
+        desiredTarget = point
+        distance = Self.clampDistance(newDistance)
+    }
+
+    /// World-space ray through a view point (origin at the camera). `point` and `viewSize` are in view coordinates.
+    func ray(through point: CGPoint, viewSize: CGSize) -> (origin: SIMD3<Float>, direction: SIMD3<Float>)? {
+        guard viewSize.width > 1, viewSize.height > 1 else { return nil }
+        let forward = simd_normalize(target - lastPosition)
+        let right = simd_normalize(simd_cross(forward, SIMD3<Float>(0, 1, 0)))
+        let up = simd_cross(right, forward)
+        let ndcX = Float(point.x / viewSize.width) * 2 - 1
+        let ndcY = 1 - Float(point.y / viewSize.height) * 2
+        let tanHalf = tan(camera.camera.fieldOfViewInDegrees * .pi / 360)
+        let aspect = Float(viewSize.width / viewSize.height)
+        let direction = simd_normalize(forward + right * (ndcX * tanHalf * aspect) + up * (ndcY * tanHalf))
+        return (lastPosition, direction)
+    }
+
     /// Advances easing and positions the camera. Returns the viewer pose for summon placement.
     func update(deltaTime: TimeInterval) -> ViewerPose {
         let k = min(1, Float(deltaTime) * 4)
@@ -77,6 +101,7 @@ final class OrbitCameraRig {
         let y = distance * sin(pitch)
         let z = distance * cos(pitch) * cos(yaw)
         let position = target + SIMD3(x, y, z)
+        lastPosition = position
         camera.look(at: target, from: position, relativeTo: nil)
         return ViewerPose(position: position, forward: simd_normalize(target - position))
     }

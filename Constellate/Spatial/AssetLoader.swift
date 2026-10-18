@@ -1,3 +1,4 @@
+import ConstellateKit
 import Foundation
 import RealityKit
 
@@ -53,6 +54,54 @@ enum AssetLoader {
         let texture = await texture(image, semantic: .raw, mipmaps: false)
         glowDotTexture = texture
         return texture
+    }
+
+    /// Accent colours the Blender exporter uses for the `Accent` material slot.
+    private static let exportedAccents: [RGBA] = [RGBA(hex: 0x6FB6FF), RGBA(hex: 0xFFD166), RGBA(hex: 0xFF8FD1), RGBA(hex: 0x5EE1FF)]
+
+    /// Walks `entity` and replaces every `Accent` material with an emissive PBR in `color`.
+    /// Matches by material / entity name when the importer preserves it, else by colour ≈ an exported accent.
+    @discardableResult
+    static func retintAccent(in entity: Entity, color: RGBA) -> Int {
+        var count = 0
+        var stack: [Entity] = [entity]
+        while let current = stack.popLast() {
+            stack.append(contentsOf: current.children)
+            guard let modelEntity = current as? ModelEntity, var component = modelEntity.model else { continue }
+            var changed = false
+            for (index, material) in component.materials.enumerated() where isAccent(material, entityName: current.name) {
+                component.materials[index] = accentMaterial(color)
+                changed = true
+                count += 1
+            }
+            if changed { modelEntity.model = component }
+        }
+        return count
+    }
+
+    static func accentMaterial(_ color: RGBA) -> PhysicallyBasedMaterial {
+        var material = PhysicallyBasedMaterial()
+        material.baseColor = .init(tint: color.mixed(with: .black, 0.35).platformColor)
+        material.emissiveColor = .init(color: color.platformColor)
+        material.emissiveIntensity = 2.2
+        material.roughness = 0.35
+        material.metallic = 0.0
+        return material
+    }
+
+    private static func isAccent(_ material: any Material, entityName: String) -> Bool {
+        if entityName.localizedCaseInsensitiveContains("accent") { return true }
+        if let shader = material as? ShaderGraphMaterial, "\(shader.name)".localizedCaseInsensitiveContains("accent") { return true }
+        if let pbr = material as? PhysicallyBasedMaterial {
+            if let emissive = (pbr.emissiveColor.color as PlatformColor?)?.rgba, matchesAccent(emissive) { return true }
+            if let tint = (pbr.baseColor.tint as PlatformColor?)?.rgba, matchesAccent(tint) { return true }
+        }
+        if let unlit = material as? UnlitMaterial, let tint = (unlit.color.tint as PlatformColor?)?.rgba, matchesAccent(tint) { return true }
+        return false
+    }
+
+    private static func matchesAccent(_ color: RGBA) -> Bool {
+        exportedAccents.contains { $0.distance(to: color) < 0.12 }
     }
 
     /// Scales `entity` uniformly so its largest visual extent equals `size` metres.

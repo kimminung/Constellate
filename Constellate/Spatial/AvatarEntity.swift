@@ -16,6 +16,7 @@ final class AvatarEntity {
     private var nameLabel: ModelEntity?
     private var body: ModelEntity?
     private var head: ModelEntity?
+    private var bust: Entity?
 
     init(participant: Participant, accent: RGBA, bust: Entity?) {
         self.participant = participant
@@ -32,7 +33,9 @@ final class AvatarEntity {
         if let bust {
             AssetLoader.fit(bust, to: 0.45)
             bust.name = "Bust"
+            AssetLoader.retintAccent(in: bust, color: accent)
             root.addChild(bust)
+            self.bust = bust
         } else {
             var bodyMaterial = PhysicallyBasedMaterial()
             bodyMaterial.baseColor = .init(tint: RGBA(hex: 0x1C2238).platformColor)
@@ -80,6 +83,7 @@ final class AvatarEntity {
     var labelPivot: Entity? { nameLabel?.parent }
 
     func setAccent(_ accent: RGBA) {
+        if let bust { AssetLoader.retintAccent(in: bust, color: accent) }
         var ringMaterial = UnlitMaterial(color: accent.platformColor)
         ringMaterial.blending = .transparent(opacity: .init(floatLiteral: 0.9))
         ring.model?.materials = [ringMaterial]

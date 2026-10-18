@@ -322,6 +322,41 @@ final class HostAI {
         return HeuristicHost.chat(text, graph: graph, clusters: clusters, docked: docked)
     }
 
+    /// Streaming chat. `onPartial` receives the cumulative text at ≤ ~15 Hz; the final text is always delivered.
+    func streamChat(_ text: String, situation: String, graph: CodeGraph, clusters: [CodeCluster], docked: CodeCluster?, onPartial: @escaping @MainActor (String) -> Void) async -> HostReply {
+        isThinking = true
+        lastError = nil
+        defer { isThinking = false }
+#if canImport(FoundationModels)
+        if let session = freshSessionIfNeeded() {
+            do {
+                let prompt = situation.isEmpty ? text : "Context: \(situation)\n\nQuestion: \(text)"
+                let stream = session.streamResponse(to: prompt, options: GenerationOptions(temperature: 0.4, maximumResponseTokens: 500))
+                var latest = ""
+                var lastEmit = ContinuousClock.now - .seconds(1)
+                for try await snapshot in stream {
+                    latest = snapshot.content
+                    let now = ContinuousClock.now
+                    if now - lastEmit >= .milliseconds(66) {
+                        lastEmit = now
+                        onPartial(latest)
+                    }
+                }
+                let final = latest.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !final.isEmpty {
+                    onPartial(final)
+                    return HostReply(final, nodeIDs: Self.extractIDs(from: final, graph: graph))
+                }
+            } catch {
+                lastError = recover(from: error)
+            }
+        }
+#endif
+        let reply = HeuristicHost.chat(text, graph: graph, clusters: clusters, docked: docked)
+        onPartial(reply.text)
+        return reply
+    }
+
     /// Voice "find …" path: structured answer with node ids.
     func locate(_ query: String, graph: CodeGraph) async -> HostReply {
         isThinking = true

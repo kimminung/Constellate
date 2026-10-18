@@ -3,39 +3,54 @@ import ConstellateKit
 import RealityKit
 import SwiftUI
 
-/// Windowed constellation (iPad / Mac): RealityView + orbit camera + entity-targeted taps.
+/// Windowed constellation (iPad / Mac): RealityView + orbit camera + entity-targeted taps + laser pointer.
 struct ConstellationViewport: View {
     @Environment(AppModel.self) private var model
 
     @State private var controller = ConstellationSceneController(mode: .windowed, theme: .dark)
     @State private var rig = OrbitCameraRig()
     @State private var updateSubscription: EventSubscription?
+    @State private var viewSize: CGSize = .zero
 
     var body: some View {
-        RealityView { content in
-            content.camera = .virtual
-            content.add(controller.root)
-            content.add(rig.camera)
-            syncAll()
-            updateSubscription = content.subscribe(to: SceneEvents.Update.self) { event in
-                tick(event.deltaTime)
+        GeometryReader { geometry in
+            RealityView { content in
+                content.camera = .virtual
+                content.add(controller.root)
+                content.add(rig.camera)
+                syncAll()
+                updateSubscription = content.subscribe(to: SceneEvents.Update.self) { event in
+                    tick(event.deltaTime)
+                }
             }
+            .gesture(
+                SpatialTapGesture()
+                    .targetedToAnyEntity()
+                    .onEnded { value in handleTap(value.entity) }
+            )
+            // Long-press (0.35 s) then drag = laser pointer.
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.35)
+                    .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
+                    .onChanged { value in
+                        guard case .second(true, let drag) = value else { return }
+                        rig.isPointing = true
+                        if let drag { point(at: drag.location) }
+                    }
+                    .onEnded { _ in endPointing() }
+            )
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 3)
+                    .onChanged { value in rig.drag(translation: value.translation) }
+                    .onEnded { _ in rig.endDrag() }
+            )
+            .simultaneousGesture(
+                MagnifyGesture()
+                    .onChanged { value in rig.magnify(value.magnification) }
+                    .onEnded { _ in rig.endMagnify() }
+            )
+            .onChange(of: geometry.size, initial: true) { viewSize = geometry.size }
         }
-        .gesture(
-            SpatialTapGesture()
-                .targetedToAnyEntity()
-                .onEnded { value in handleTap(value.entity) }
-        )
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 3)
-                .onChanged { value in rig.drag(translation: value.translation) }
-                .onEnded { _ in rig.endDrag() }
-        )
-        .simultaneousGesture(
-            MagnifyGesture()
-                .onChanged { value in rig.magnify(value.magnification) }
-                .onEnded { _ in rig.endMagnify() }
-        )
         .background(model.theme.skyTop.swiftUIColor)
 #if os(macOS)
         .overlay {
@@ -54,6 +69,12 @@ struct ConstellationViewport: View {
                 rig.frame(p)
             }
         }
+        .onChange(of: model.followEventToken) {
+            // Follow-host: fly to the summoned / toured node.
+            if let id = model.guideTargetID, let p = model.layout.position3(for: id, timeDial: model.timeDial) {
+                rig.flyTo(p, distance: 3.5)
+            }
+        }
         .onChange(of: model.highlightedNodeIDs) { controller.setHighlights(model.highlightedNodeIDs) }
         .onChange(of: model.beacons) { controller.setBeacons(model.beacons, pinned: model.pinnedBeacons) }
         .onChange(of: model.pinnedBeacons) { controller.setBeacons(model.beacons, pinned: model.pinnedBeacons) }
@@ -69,6 +90,16 @@ struct ConstellationViewport: View {
                     .padding(10)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
                     .padding()
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if rig.isPointing {
+                Label("Pointer · 포인터", systemImage: "scope")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 150)
             }
         }
     }
@@ -109,6 +140,35 @@ struct ConstellationViewport: View {
             model.undockHost()
             controller.returnHostToViewer()
         }
+    }
+
+    // MARK: - Laser pointer
+
+    /// Projects a camera ray through the touch point; uses a scene hit when there is one, else a plane
+    /// facing the camera at the selected node's (or orbit target's) depth.
+    private func point(at location: CGPoint) {
+        guard let ray = rig.ray(through: location, viewSize: viewSize) else { return }
+        let hit: SIMD3<Float>
+        if let sceneHit = controller.raycastHit(origin: ray.origin, direction: ray.direction) {
+            hit = sceneHit
+        } else {
+            let anchor = model.selectedNodeID.flatMap { model.layout.position3(for: $0, timeDial: model.timeDial) } ?? rig.target
+            let normal = -simd_normalize(rig.target - ray.origin)
+            let denominator = simd_dot(ray.direction, normal)
+            guard abs(denominator) > 0.0001 else { return }
+            let t = simd_dot(anchor - ray.origin, normal) / denominator
+            guard t > 0.1 else { return }
+            hit = ray.origin + ray.direction * t
+        }
+        controller.setLocalPointer(origin: ray.origin + ray.direction * 0.4 - [0, 0.15, 0], hit: hit)
+        model.setLocalPointer(hit)
+    }
+
+    private func endPointing() {
+        rig.isPointing = false
+        rig.endDrag()
+        controller.clearLocalPointer()
+        model.setLocalPointer(nil)
     }
 }
 #endif
