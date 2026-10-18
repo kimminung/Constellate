@@ -1,0 +1,114 @@
+#if !os(visionOS)
+import ConstellateKit
+import RealityKit
+import SwiftUI
+
+/// Windowed constellation (iPad / Mac): RealityView + orbit camera + entity-targeted taps.
+struct ConstellationViewport: View {
+    @Environment(AppModel.self) private var model
+
+    @State private var controller = ConstellationSceneController(mode: .windowed, theme: .dark)
+    @State private var rig = OrbitCameraRig()
+    @State private var updateSubscription: EventSubscription?
+
+    var body: some View {
+        RealityView { content in
+            content.camera = .virtual
+            content.add(controller.root)
+            content.add(rig.camera)
+            syncAll()
+            updateSubscription = content.subscribe(to: SceneEvents.Update.self) { event in
+                tick(event.deltaTime)
+            }
+        }
+        .gesture(
+            SpatialTapGesture()
+                .targetedToAnyEntity()
+                .onEnded { value in handleTap(value.entity) }
+        )
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 3)
+                .onChanged { value in rig.drag(translation: value.translation) }
+                .onEnded { _ in rig.endDrag() }
+        )
+        .simultaneousGesture(
+            MagnifyGesture()
+                .onChanged { value in rig.magnify(value.magnification) }
+                .onEnded { _ in rig.endMagnify() }
+        )
+        .background(model.theme.skyTop.swiftUIColor)
+#if os(macOS)
+        .overlay {
+            ScrollWheelMonitor { notches in
+                // One notch ≈ 4 % of the distance; scrolling up brings the camera closer.
+                rig.zoom(by: Float(-notches) * 0.04)
+            }
+        }
+#endif
+        .onChange(of: model.sceneRevision) { rebuild() }
+        .onChange(of: model.theme) { controller.applyTheme(model.theme) }
+        .onChange(of: model.timeDial) { controller.setTimeDial(model.timeDial) }
+        .onChange(of: model.selectedNodeID) {
+            controller.setSelection(model.selectedNodeID)
+            if let id = model.selectedNodeID, let p = model.layout.position3(for: id, timeDial: model.timeDial) {
+                rig.frame(p)
+            }
+        }
+        .onChange(of: model.highlightedNodeIDs) { controller.setHighlights(model.highlightedNodeIDs) }
+        .onChange(of: model.beacons) { controller.setBeacons(model.beacons, pinned: model.pinnedBeacons) }
+        .onChange(of: model.pinnedBeacons) { controller.setBeacons(model.beacons, pinned: model.pinnedBeacons) }
+        .onChange(of: model.summonedNodeID) { controller.setSummoned(model.summonedNodeID) }
+        .onChange(of: model.dockedClusterID) { controller.setHostDocked(model.dockedClusterID) }
+        .onChange(of: model.participants) { controller.setParticipants(model.participants, hideLocal: false) }
+        .onChange(of: model.pins) { controller.setPins(model.pins) }
+        .onChange(of: model.pointers) { controller.setPointers(model.pointers) }
+        .onDisappear { updateSubscription = nil }
+        .overlay(alignment: .topTrailing) {
+            if model.isIngesting {
+                ProgressView(model.ingestProgress.map { "\($0.filesParsed) files…" } ?? "Reading project…")
+                    .padding(10)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                    .padding()
+            }
+        }
+    }
+
+    private func syncAll() {
+        rebuild()
+        controller.setParticipants(model.participants, hideLocal: false)
+        controller.setBeacons(model.beacons, pinned: model.pinnedBeacons)
+        controller.setHostDocked(model.dockedClusterID)
+    }
+
+    private func rebuild() {
+        controller.rebuild(graph: model.graph, layout: model.layout, clusters: model.clusters, theme: model.theme, timeDial: model.timeDial, projectRoot: model.projectRootURL)
+        controller.setSelection(model.selectedNodeID)
+        controller.setHighlights(model.highlightedNodeIDs)
+        controller.setPins(model.pins)
+        let extents = model.layout.boundsMax - model.layout.boundsMin
+        rig.distance = OrbitCameraRig.clampDistance(max(4, max(extents.x, extents.z) * 0.9))
+        rig.frame([0, 1.3, 0])
+    }
+
+    private func tick(_ deltaTime: TimeInterval) {
+        let pose = rig.update(deltaTime: deltaTime)
+        controller.viewerPose = pose
+        controller.setHostPresence(model.hostPresence)
+        controller.update(deltaTime: deltaTime)
+        if !controller.expiredBeacons.isEmpty {
+            model.removeBeacons(controller.expiredBeacons)
+        }
+    }
+
+    private func handleTap(_ entity: Entity) {
+        if let nodeID = controller.nodeID(for: entity) {
+            model.select(nodeID)
+        } else if let clusterID = controller.clusterID(for: entity) {
+            model.toggleDock(clusterID)
+        } else if controller.isHostOrb(entity) {
+            model.undockHost()
+            controller.returnHostToViewer()
+        }
+    }
+}
+#endif

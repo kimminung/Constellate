@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" font-family="SF Pro Text, Helvetica, Arial, sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #0B0F1F; }
+      .ts { fill: #F4F6FB; font-size: 14px; }
+      .tb { fill: #F4F6FB; font-size: 18px; font-weight: 600; }
+      .th { fill: #F4F6FB; font-size: 26px; font-weight: 700; }
+      .muted { fill: #8A93A6; font-size: 14px; }
+      .lbl { fill: #8A93A6; font-size: 13px; }
+      .region { fill: #121733; stroke: #2A3150; stroke-width: 1.5; rx: 16; }
+      .state { fill: #0E1220; stroke-width: 2; }
+      .st-lbl { fill: #F4F6FB; font-size: 16px; font-weight: 600; text-anchor: middle; }
+      .st-sub { fill: #8A93A6; font-size: 13px; text-anchor: middle; }
+      .tr { fill: none; stroke: #6B7390; stroke-width: 1.6; marker-end: url(#ah); }
+      .tr-halo { fill: none; stroke: #9B8CFF; stroke-width: 2; marker-end: url(#ahh); }
+      .tr-lbl { fill: #F4F6FB; font-size: 13.5px; }
+    </style>
+    <marker id="ah" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,5 L0,10 z" fill="#6B7390"/></marker>
+    <marker id="ahh" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,5 L0,10 z" fill="#9B8CFF"/></marker>
+    <radialGradient id="g-idle" cx="50%" cy="45%" r="55%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="40%" stop-color="#9B8CFF" stop-opacity="0.5"/><stop offset="100%" stop-color="#9B8CFF" stop-opacity="0"/></radialGradient>
+    <radialGradient id="g-listen" cx="50%" cy="45%" r="55%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="40%" stop-color="#5EE1FF" stop-opacity="0.7"/><stop offset="100%" stop-color="#5EE1FF" stop-opacity="0"/></radialGradient>
+    <radialGradient id="g-think" cx="50%" cy="45%" r="55%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="35%" stop-color="#9B8CFF"/><stop offset="100%" stop-color="#FF7AB6" stop-opacity="0"/></radialGradient>
+    <radialGradient id="g-speak" cx="50%" cy="45%" r="55%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="40%" stop-color="#FFD166" stop-opacity="0.8"/><stop offset="100%" stop-color="#FFD166" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect class="bg" width="1200" height="700"/>
+  <text class="th" x="40" y="48">호스트 오브 상태기계 — Free / Docked × Presence</text>
+  <text class="muted" x="40" y="72">에너지: idle 0.22 · listening 0.55 · thinking 1.0 · speaking 0.75 (코어 발광 · 밴드 회전 · 파티클 방출률을 구동) · 전환 0.35 s · dock/undock 0.6 s</text>
+
+  <!-- start -->
+  <circle cx="70" cy="140" r="9" fill="#F4F6FB"/>
+  <path class="tr" d="M80,140 L118,140"/>
+  <text class="lbl" x="52" y="122">앱 시작</text>
+
+  <!-- FREE region -->
+  <rect class="region" x="120" y="96" width="560" height="470"/>
+  <text class="tb" x="140" y="126">Free — 독립 오브 (사용자 앞 0.9 m, 머리 추종)</text>
+
+  <!-- states -->
+  <g>
+    <circle class="state" cx="260" cy="230" r="54" stroke="#9B8CFF"/>
+    <circle cx="260" cy="230" r="40" fill="url(#g-idle)"/>
+    <text class="st-lbl" x="260" y="304">Idle</text>
+    <text class="st-sub" x="260" y="322">에너지 0.22 · 호흡 4 s</text>
+  </g>
+  <g>
+    <circle class="state" cx="540" cy="230" r="54" stroke="#5EE1FF"/>
+    <circle cx="540" cy="230" r="44" fill="url(#g-listen)"/>
+    <text class="st-lbl" x="540" y="304">Listening</text>
+    <text class="st-sub" x="540" y="322">에너지 0.55 · 상승음</text>
+  </g>
+  <g>
+    <circle class="state" cx="540" cy="450" r="54" stroke="#FF7AB6"/>
+    <circle cx="540" cy="450" r="50" fill="url(#g-think)"/>
+    <text class="st-lbl" x="540" y="524">Thinking</text>
+    <text class="st-sub" x="540" y="542">에너지 1.0 · 밴드 2.4 rad/s</text>
+  </g>
+  <g>
+    <circle class="state" cx="260" cy="450" r="54" stroke="#FFD166"/>
+    <circle cx="260" cy="450" r="46" fill="url(#g-speak)"/>
+    <text class="st-lbl" x="260" y="524">Speaking</text>
+    <text class="st-sub" x="260" y="542">에너지 0.75 · 음성 진폭 추종</text>
+  </g>
+
+  <!-- transitions inside Free -->
+  <path class="tr" d="M314,218 L486,218"/>
+  <text class="tr-lbl" x="330" y="208">웨이크워드 "콘스텔" · 마이크 버튼 · 오브 탭</text>
+  <path class="tr" d="M486,246 L314,246"/>
+  <text class="tr-lbl" x="360" y="268">6 s 침묵 타임아웃</text>
+
+  <path class="tr" d="M540,284 L540,396"/>
+  <text class="tr-lbl" x="552" y="344">최종 전사 · 1.2 s 침묵</text>
+
+  <path class="tr" d="M486,450 L314,450"/>
+  <text class="tr-lbl" x="340" y="440">응답 / 도구 결과 (스트리밍)</text>
+
+  <path class="tr" d="M260,396 L260,284"/>
+  <text class="tr-lbl" x="150" y="344">발화 종료</text>
+
+  <path class="tr" d="M500,410 C 420,330 330,310 300,282"/>
+  <text class="tr-lbl" x="372" y="372">오류 · 폴백(짧게 말함)</text>
+
+  <!-- DOCKED region -->
+  <rect class="region" x="720" y="96" width="440" height="470"/>
+  <text class="tb" x="740" y="126">Docked — 클러스터 오브 안 (셸이 헤일로 색)</text>
+  <text class="lbl" x="740" y="146">질문 컨텍스트 = 클러스터 멤버 코드 요약 + 발췌</text>
+
+  <!-- cluster shell -->
+  <circle cx="940" cy="350" r="150" fill="none" stroke="#9B8CFF" stroke-width="2" stroke-dasharray="6 5" opacity="0.8"/>
+  <circle cx="940" cy="350" r="150" fill="#9B8CFF" opacity="0.05"/>
+
+  <g>
+    <circle class="state" cx="940" cy="250" r="36" stroke="#9B8CFF"/>
+    <circle cx="940" cy="250" r="28" fill="url(#g-idle)"/>
+    <text class="st-lbl" x="940" y="298">D·Idle</text>
+  </g>
+  <g>
+    <circle class="state" cx="1040" cy="380" r="36" stroke="#5EE1FF"/>
+    <circle cx="1040" cy="380" r="30" fill="url(#g-listen)"/>
+    <text class="st-lbl" x="1040" y="428">D·Listening</text>
+  </g>
+  <g>
+    <circle class="state" cx="940" cy="460" r="36" stroke="#FF7AB6"/>
+    <circle cx="940" cy="460" r="34" fill="url(#g-think)"/>
+    <text class="st-lbl" x="940" y="508">D·Thinking</text>
+  </g>
+  <g>
+    <circle class="state" cx="840" cy="380" r="36" stroke="#FFD166"/>
+    <circle cx="840" cy="380" r="31" fill="url(#g-speak)"/>
+    <text class="st-lbl" x="840" y="428">D·Speaking</text>
+  </g>
+  <path class="tr" d="M968,274 L1016,352"/>
+  <path class="tr" d="M1016,408 L968,436"/>
+  <path class="tr" d="M912,436 L864,408"/>
+  <path class="tr" d="M864,352 L912,274"/>
+  <text class="lbl" x="1012" y="298">웨이크워드 · 탭</text>
+  <text class="lbl" x="1004" y="456">전사 확정</text>
+  <text class="lbl" x="846" y="458">응답</text>
+  <text class="lbl" x="846" y="312">발화 종료</text>
+
+  <!-- dock / undock between regions -->
+  <path class="tr-halo" d="M680,150 L720,150"/>
+  <text class="tr-lbl" x="676" y="140" fill="#9B8CFF">dock</text>
+
+  <path class="tr-halo" d="M720,556 L680,556"/>
+  <text class="tr-lbl" x="664" y="546" fill="#9B8CFF">undock</text>
+
+  <path class="tr-halo" d="M1100,170 C 1150,150 1150,210 1100,200"/>
+  <text class="lbl" x="935" y="184">다른 클러스터 탭 → 재도킹</text>
+
+  <!-- legend -->
+  <text class="ts" x="40" y="596">· dock: 클러스터 오브 탭 → 0.6 s 베지어 비행·합체, 셸이 orbHalo 색으로. undock: 드래그 0.25 m 초과 · "나와" · undock() → 0.6 s 분리.</text>
+  <text class="ts" x="40" y="618">· 상태 → 에너지 매핑은 Free/Docked에서 동일하다. Docked에서는 같은 에너지가 클러스터 셸의 발광에도 적용된다.</text>
+  <text class="ts" x="40" y="640">· AI 불가(unavailable): Idle 에너지에 코어가 회색이 되고 파티클 0. 기능은 휴리스틱 폴백으로 유지된다.</text>
+  <text class="ts" x="40" y="662">· orbDock(clusterID:docked:) 메시지로 모든 참가자가 동일한 dock 상태를 본다. Reduce Motion에서는 비행 대신 크로스페이드 0.4 s.</text>
+  <text class="ts" x="40" y="684">· member 기기의 오브는 host의 hostSpeech 수신 시 Speaking으로만 전환된다(모델 없음).</text>
+</svg>

@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" font-family="SF Pro Text, Helvetica, Arial, sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #0B0F1F; }
+      .t { fill: #F4F6FB; font-size: 16px; }
+      .ts { fill: #F4F6FB; font-size: 14px; }
+      .tb { fill: #F4F6FB; font-size: 18px; font-weight: 600; }
+      .th { fill: #F4F6FB; font-size: 26px; font-weight: 700; }
+      .muted { fill: #8A93A6; font-size: 14px; }
+      .mono { fill: #F4F6FB; font-size: 13.5px; font-family: SF Mono, Menlo, monospace; }
+      .panel { fill: #121733; stroke: #2A3150; stroke-width: 1.5; rx: 12; }
+      .box { fill: #0E1220; stroke-width: 1.5; rx: 10; }
+      .cyan { stroke: #5EE1FF; }
+      .lime { stroke: #B8FF7A; }
+      .halo { stroke: #9B8CFF; }
+      .amber { stroke: #FFD166; }
+      .pink { stroke: #FF7AB6; }
+      .grey { stroke: #8A93A6; }
+      .link { stroke: #B8FF7A; stroke-width: 1.8; fill: none; marker-end: url(#ahl); }
+      .link2 { stroke: #B8FF7A; stroke-width: 1.8; fill: none; marker-start: url(#ahl-s); marker-end: url(#ahl); }
+      .ask { stroke: #FF7AB6; stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; marker-end: url(#ahp); }
+      .lbl { fill: #8A93A6; font-size: 13px; }
+    </style>
+    <marker id="ahl" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,5 L0,10 z" fill="#B8FF7A"/></marker>
+    <marker id="ahl-s" markerWidth="10" markerHeight="10" refX="1" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M10,0 L0,5 L10,10 z" fill="#B8FF7A"/></marker>
+    <marker id="ahp" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,5 L0,10 z" fill="#FF7AB6"/></marker>
+    <radialGradient id="orb" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="45%" stop-color="#9B8CFF"/>
+      <stop offset="100%" stop-color="#9B8CFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect class="bg" width="1200" height="720"/>
+  <text class="th" x="40" y="48">회의 토폴로지 — GroupActivities (SharePlay)</text>
+  <text class="muted" x="40" y="72">host 1 + member n · AI는 host 기기에만 · 메시지는 ConstellateMessage(JSON) · 코드 본문은 전송하지 않음</text>
+
+  <!-- Host device -->
+  <rect class="panel" x="40" y="100" width="340" height="330"/>
+  <text class="tb" x="56" y="128">Host 기기 (지연 · Vision Pro)</text>
+  <text class="lbl" x="56" y="148">ParticipantRole.host · 세션 activate</text>
+
+  <circle cx="110" cy="220" r="46" fill="url(#orb)"/>
+  <circle cx="110" cy="220" r="14" fill="#F7F7FF"/>
+  <text class="ts" x="60" y="290">온디바이스 AI</text>
+  <text class="lbl" x="60" y="308">FoundationModels</text>
+  <text class="lbl" x="60" y="324">세션 (host만)</text>
+
+  <rect class="box halo" x="180" y="172" width="184" height="100"/>
+  <text class="ts" x="192" y="196">HostAI + Tools ×5</text>
+  <text class="lbl" x="192" y="214">locateCode · explainNode</text>
+  <text class="lbl" x="192" y="230">summarizeCluster</text>
+  <text class="lbl" x="192" y="246">reviewNode · planTour</text>
+  <text class="lbl" x="192" y="262">폴백: CodeSearcher</text>
+
+  <rect class="box cyan" x="180" y="282" width="184" height="52"/>
+  <text class="ts" x="192" y="304">CodeGraph + 소스 캐시</text>
+  <text class="lbl" x="192" y="322">폴더 전체 (로컬에만)</text>
+
+  <rect class="box lime" x="56" y="350" width="308" height="64"/>
+  <text class="ts" x="68" y="374">SessionCoordinator (host)</text>
+  <text class="lbl" x="68" y="394">roster · theme · timeDial · mode · tour 권한</text>
+
+  <!-- Messenger -->
+  <rect class="panel" x="430" y="100" width="340" height="330"/>
+  <text class="tb" x="446" y="128">GroupSession · GroupSessionMessenger</text>
+  <text class="lbl" x="446" y="148">FaceTime/SharePlay 전송 · reliable + unreliable</text>
+
+  <rect class="box lime" x="446" y="168" width="308" height="246"/>
+  <text class="ts" x="458" y="192">ConstellateMessage (16 case)</text>
+  <g class="mono">
+    <text x="458" y="214">hello(Participant)</text>
+    <text x="458" y="231">roster([Participant])</text>
+    <text x="458" y="248">graphDigest(name, count, checksum)</text>
+    <text x="458" y="265">highlight(nodeIDs, by)</text>
+    <text x="458" y="282">summon(nodeID, by, reason)</text>
+    <text x="458" y="299">orbDock(clusterID, docked)</text>
+    <text x="458" y="316">hostSpeech(text, nodeIDs) · "ask:"</text>
+    <text x="458" y="333">pointer(by, position) · 10 Hz</text>
+    <text x="458" y="350">pin(ReviewPin) · resolvePin(id)</text>
+    <text x="458" y="367">theme · timeDial · mode</text>
+    <text x="458" y="384">tour(LearningTour) · tourStep(Int)</text>
+    <text x="458" y="401">followHost(Bool)</text>
+  </g>
+
+  <!-- Members -->
+  <rect class="panel" x="820" y="100" width="340" height="330"/>
+  <text class="tb" x="836" y="128">Member 기기들</text>
+  <text class="lbl" x="836" y="148">ParticipantRole.member · 모델 없음</text>
+
+  <rect class="box cyan" x="836" y="166" width="308" height="76"/>
+  <text class="ts" x="848" y="190">도윤 · iPad Pro</text>
+  <text class="lbl" x="848" y="210">RealityView + 궤도 카메라 · 포인터 · 핀</text>
+  <text class="lbl" x="848" y="226">질문은 hostSpeech("ask: …")로 host에게</text>
+
+  <rect class="box cyan" x="836" y="254" width="308" height="76"/>
+  <text class="ts" x="848" y="278">하린 · MacBook Pro</text>
+  <text class="lbl" x="848" y="298">3열 + 메뉴 · follow-host 카메라 보간</text>
+  <text class="lbl" x="848" y="314">투어 스텝 비콘 + 내레이션 수신</text>
+
+  <rect class="box grey" x="836" y="342" width="308" height="80"/>
+  <text class="ts" x="848" y="364">그래프 동기화</text>
+  <text class="lbl" x="848" y="382">checksum 불일치 → 구조만 청크 수신</text>
+  <text class="lbl" x="848" y="398">(이름 · 경로 · 라인 수 · 엣지; 소스 본문 없음)</text>
+  <text class="lbl" x="848" y="414">→ 카드 "구조만 보기"</text>
+
+  <!-- links -->
+  <path class="link2" d="M380,260 L430,260"/>
+  <path class="link2" d="M770,260 L820,260"/>
+  <path class="ask" d="M836,236 C 700,470 300,470 230,336"/>
+  <text class="lbl" x="470" y="444" fill="#FF7AB6">member → host: hostSpeech(text: "ask: 토큰 갱신 코드 찾아줘")</text>
+  <path class="link" d="M230,350 C 300,520 820,520 836,330"/>
+  <text class="lbl" x="470" y="512" fill="#B8FF7A">host → 전원: summon(nodeID, by: 도윤, reason) + hostSpeech(답변, nodeIDs)</text>
+
+  <!-- bottom: roles & modes -->
+  <rect class="panel" x="40" y="540" width="548" height="160"/>
+  <text class="tb" x="56" y="568">역할 권한</text>
+  <g class="ts">
+    <text x="56" y="594">host: 모드·테마·타임 다이얼·투어 전진/후진·followHost·orbDock · AI 호출</text>
+    <text x="56" y="616">member: highlight · summon(수동) · pointer · pin/resolvePin · "ask:" 질문</text>
+    <text x="56" y="638">공통: hello 핸드셰이크, roster 수신, 아바타(흉상 + 이름판 + 액센트 hue)</text>
+  </g>
+  <text class="lbl" x="56" y="668">host 이탈 시 세션 종료(v1.0). 솔로 모드 = 참가자 1명(host).</text>
+
+  <rect class="panel" x="612" y="540" width="548" height="160"/>
+  <text class="tb" x="628" y="568">MeetingMode</text>
+  <g class="ts">
+    <text x="628" y="594" fill="#5EE1FF">analysis</text><text x="720" y="594">자유 탐색 · 다이얼 · 클러스터 요약 · 출두</text>
+    <text x="628" y="616" fill="#FFD166">review</text><text x="720" y="616">핀 작성/해결 · reviewNode 체크리스트 · 포인터 토론</text>
+    <text x="628" y="638" fill="#B8FF7A">lecture</text><text x="720" y="638">planTour → tour/tourStep · followHost · 내레이션 + TTS</text>
+  </g>
+  <text class="lbl" x="628" y="668">visionOS member는 follow-host에서 카메라를 옮기지 않는다(가이드선 + 비콘만, 멀미 방지).</text>
+</svg>

@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" font-family="SF Pro Text, Helvetica, Arial, sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #0B0F1F; }
+      .t { fill: #F4F6FB; font-size: 16px; }
+      .ts { fill: #F4F6FB; font-size: 14px; }
+      .tb { fill: #F4F6FB; font-size: 17px; font-weight: 600; }
+      .th { fill: #F4F6FB; font-size: 26px; font-weight: 700; }
+      .muted { fill: #8A93A6; font-size: 14px; }
+      .box { fill: #0E1220; stroke-width: 1.5; rx: 10; }
+      .lane { fill: #121733; stroke: #2A3150; stroke-width: 1.5; rx: 12; }
+      .cyan { stroke: #5EE1FF; }
+      .pink { stroke: #FF7AB6; }
+      .amber { stroke: #FFD166; }
+      .lime { stroke: #B8FF7A; }
+      .lav { stroke: #B89CFF; }
+      .grey { stroke: #8A93A6; }
+      .halo { stroke: #9B8CFF; }
+      .arrow { stroke: #6B7390; stroke-width: 1.8; fill: none; marker-end: url(#ah); }
+      .arrow-pink { stroke: #FF7AB6; stroke-width: 1.8; fill: none; marker-end: url(#ahp); }
+      .arrow-lime { stroke: #B8FF7A; stroke-width: 1.8; fill: none; marker-end: url(#ahl); }
+      .arrow-halo { stroke: #9B8CFF; stroke-width: 1.8; fill: none; marker-end: url(#ahh); }
+      .lbl { fill: #8A93A6; font-size: 13px; }
+    </style>
+    <marker id="ah" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,5 L0,10 z" fill="#6B7390"/></marker>
+    <marker id="ahp" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,5 L0,10 z" fill="#FF7AB6"/></marker>
+    <marker id="ahl" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,5 L0,10 z" fill="#B8FF7A"/></marker>
+    <marker id="ahh" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,5 L0,10 z" fill="#9B8CFF"/></marker>
+  </defs>
+  <rect class="bg" width="1200" height="640"/>
+  <text class="th" x="40" y="48">Constellate — 데이터 흐름</text>
+  <text class="muted" x="40" y="72">폴더 → 그래프 → 4D 레이아웃 → 클러스터 → 씬 (위) · 음성 → 호스트 AI 도구 → 하이라이트/출두 → SharePlay 브로드캐스트 (아래)</text>
+
+  <!-- Main pipeline lane -->
+  <rect class="lane" x="40" y="96" width="1120" height="230"/>
+  <text class="tb" x="56" y="122">주 파이프라인 (백그라운드 → 메인)</text>
+
+  <!-- folder -->
+  <rect class="box grey" x="56" y="150" width="130" height="80"/>
+  <text class="tb" x="70" y="178">프로젝트 폴더</text>
+  <text class="ts" x="70" y="200">보안 스코프 URL</text>
+  <text class="ts" x="70" y="218">≤ 4000 파일</text>
+
+  <path class="arrow" d="M186,190 L206,190"/>
+
+  <rect class="box lav" x="208" y="150" width="172" height="80"/>
+  <text class="tb" x="222" y="178">ProjectIngestor</text>
+  <text class="ts" x="222" y="200">SwiftSymbolExtractor</text>
+  <text class="ts" x="222" y="218">inferLayer · modifiedAt</text>
+
+  <path class="arrow" d="M380,190 L400,190"/>
+
+  <rect class="box lav" x="402" y="150" width="140" height="80"/>
+  <text class="tb" x="416" y="178">CodeGraph</text>
+  <text class="ts" x="416" y="200">tree: contains</text>
+  <text class="ts" x="416" y="218">graph: 관계 엣지 4종</text>
+
+  <path class="arrow" d="M542,190 L562,190"/>
+
+  <rect class="box lav" x="564" y="150" width="230" height="80"/>
+  <text class="tb" x="578" y="178">ConstellationLayoutEngine</text>
+  <text class="ts" x="578" y="200">섹터 · 셸 · y 밴드 · w</text>
+  <text class="ts" x="578" y="218">결정적 · O(N log N)</text>
+
+  <path class="arrow" d="M794,190 L814,190"/>
+
+  <rect class="box lav" x="816" y="150" width="170" height="80"/>
+  <text class="tb" x="830" y="178">ConstellationLayout</text>
+  <text class="ts" x="830" y="200">position4 · radius</text>
+  <text class="ts" x="830" y="218">position3(timeDial)</text>
+
+  <path class="arrow" d="M986,190 L1006,190"/>
+
+  <rect class="box amber" x="1008" y="150" width="136" height="80"/>
+  <text class="tb" x="1022" y="178">Scene</text>
+  <text class="ts" x="1022" y="200">SceneController</text>
+  <text class="ts" x="1022" y="218">카드 · 엣지 · 오브</text>
+
+  <!-- ClusterBuilder below -->
+  <rect class="box lav" x="564" y="252" width="230" height="56"/>
+  <text class="tb" x="578" y="276">ClusterBuilder</text>
+  <text class="ts" x="578" y="296">folder / file / type / feature</text>
+  <path class="arrow" d="M472,230 L472,280 L562,280"/>
+  <path class="arrow" d="M901,230 L901,280 L796,280"/>
+  <path class="arrow" d="M794,300 L1076,300 L1076,232"/>
+  <text class="lbl" x="820" y="316">CodeCluster[] → 오브 centroid</text>
+  <text class="lbl" x="200" y="246">IngestProgress → HUD (MainActor 홉)</text>
+
+  <!-- Side inputs lane -->
+  <rect class="lane" x="40" y="350" width="1120" height="266"/>
+  <text class="tb" x="56" y="376">부 입력 — 음성 · 호스트 AI · 회의</text>
+
+  <rect class="box pink" x="56" y="404" width="150" height="80"/>
+  <text class="tb" x="70" y="432">Voice</text>
+  <text class="ts" x="70" y="454">SpeechListener</text>
+  <text class="ts" x="70" y="472">웨이크워드 "콘스텔"</text>
+
+  <path class="arrow-pink" d="M206,444 L234,444"/>
+
+  <rect class="box pink" x="236" y="404" width="160" height="80"/>
+  <text class="tb" x="250" y="432">Router</text>
+  <text class="ts" x="250" y="454">VoiceCommandRouter</text>
+  <text class="ts" x="250" y="472">find/explain/…/undock</text>
+
+  <path class="arrow-pink" d="M396,444 L424,444"/>
+
+  <rect class="box halo" x="426" y="404" width="260" height="80"/>
+  <text class="tb" x="440" y="432">HostAI + Tools ×5 (방장 기기)</text>
+  <text class="ts" x="440" y="454">LanguageModelSession · @Generable</text>
+  <text class="ts" x="440" y="472">폴백 HeuristicHost · CodeSearcher</text>
+
+  <path class="arrow-halo" d="M551,404 L551,330 L472,330 L472,232" />
+  <text class="lbl" x="560" y="346">도구가 CodeGraph를 조회</text>
+
+  <path class="arrow-halo" d="M686,444 L714,444"/>
+
+  <rect class="box amber" x="716" y="404" width="180" height="80"/>
+  <text class="tb" x="730" y="432">씬 액션</text>
+  <text class="ts" x="730" y="454">highlight · summon(비콘)</text>
+  <text class="ts" x="730" y="472">dock · startTour</text>
+
+  <path class="arrow" d="M806,404 L806,340 L1110,340 L1110,232"/>
+  <text class="lbl" x="820" y="356">씬에 적용(모든 기기)</text>
+
+  <path class="arrow-lime" d="M896,444 L914,444"/>
+
+  <rect class="box lime" x="916" y="404" width="228" height="80"/>
+  <text class="tb" x="930" y="432">SessionCoordinator</text>
+  <text class="ts" x="930" y="454">ConstellateMessage(JSON)</text>
+  <text class="ts" x="930" y="472">GroupSessionMessenger</text>
+
+  <!-- broadcast -->
+  <rect class="box lime" x="916" y="520" width="228" height="76"/>
+  <text class="tb" x="930" y="546">참가자 기기들 (SharePlay)</text>
+  <text class="ts" x="930" y="568">hostSpeech · summon · highlight</text>
+  <text class="ts" x="930" y="586">pointer · pin · theme · timeDial</text>
+  <path class="arrow-lime" d="M1000,484 L1000,518"/>
+  <path class="arrow-lime" d="M1060,518 L1060,484"/>
+  <text class="lbl" x="1070" y="506">member → "ask:"</text>
+
+  <!-- notes -->
+  <text class="ts" x="56" y="530">· 코드 본문은 기기를 떠나지 않는다. 메시지는 NodeID·텍스트·숫자만.</text>
+  <text class="ts" x="56" y="554">· member의 질문은 hostSpeech(text: "ask: …")로 host에 전달되고 host AI만 모델을 호출한다.</text>
+  <text class="ts" x="56" y="578">· 인제스트·레이아웃은 Sendable 값만 다루는 백그라운드 Task, RealityKit 엔티티는 메인에서만 만진다.</text>
+  <text class="ts" x="56" y="602">· 타임 다이얼은 레이아웃을 다시 계산하지 않고 position3(for:timeDial:) 투영만 바꾼다.</text>
+</svg>
