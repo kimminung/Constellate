@@ -20,6 +20,10 @@ Constellate turns a whole project into a multi-dimensional "code constellation" 
 
 ## Videos
 
+
+https://github.com/user-attachments/assets/d40ddac7-933e-4bdb-ade7-8c2d3a3e634b
+
+
 <table>
   <tr>
     <td align="center" width="50%"><a href="Docs/video/constellate-intro.mp4"><img src="Docs/video/constellate-intro.gif" alt="Constellate intro — highlight loop; click for the narrated MP4"/></a><br/><sub><b>Intro · 앱 소개</b> · 1:43 · <a href="Docs/video/constellate-intro.mp4">MP4</a></sub></td>
