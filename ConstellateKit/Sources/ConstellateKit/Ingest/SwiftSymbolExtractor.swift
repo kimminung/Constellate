@@ -38,13 +38,23 @@ public struct ExtractedFile: Hashable, Codable, Sendable {
     public var referencedTypeNames: Set<String>
     public var lineCount: Int
     public var tags: Set<String>
+    /// How each referenced name is used (bound / presented / constructed). Missing names are plain mentions.
+    /// See `RelationClassifier.referenceFacts`.
+    public var referenceFacts: [String: ReferenceFact]
+    /// Notification names this file posts / observes (`notifies` edges connect posters to observers).
+    public var postedNotifications: [String]
+    public var observedNotifications: [String]
 
-    public init(imports: [String] = [], symbols: [ExtractedSymbol] = [], referencedTypeNames: Set<String> = [], lineCount: Int = 0, tags: Set<String> = []) {
+    public init(imports: [String] = [], symbols: [ExtractedSymbol] = [], referencedTypeNames: Set<String> = [], lineCount: Int = 0, tags: Set<String> = [],
+                referenceFacts: [String: ReferenceFact] = [:], postedNotifications: [String] = [], observedNotifications: [String] = []) {
         self.imports = imports
         self.symbols = symbols
         self.referencedTypeNames = referencedTypeNames
         self.lineCount = lineCount
         self.tags = tags
+        self.referenceFacts = referenceFacts
+        self.postedNotifications = postedNotifications
+        self.observedNotifications = observedNotifications
     }
 }
 
@@ -95,6 +105,11 @@ public struct SwiftSymbolExtractor: Sendable {
             }
         }
         file.referencedTypeNames = refs
+        // Relation flavour per referenced name (portfolio relations.js port) + NotificationCenter wiring.
+        file.referenceFacts = RelationClassifier.referenceFacts(cleanedLines: cleaned, candidates: refs)
+        let notes = RelationClassifier.notifications(in: source)
+        file.postedNotifications = notes.posted
+        file.observedNotifications = notes.observed
 
         if imported.contains("Testing") || imported.contains("XCTest") {
             file.tags.insert("test")

@@ -92,6 +92,8 @@ final class EnvironmentEntity {
         }
 
         // Sky: dark preset can use the baked texture directly; tinted themes multiply the luminance map or go procedural.
+        // Cancel first: a tinted sky still rendering must not land on top of a later dark choice.
+        themeTask?.cancel()
         if case .dark = theme.mode, let skyDarkTexture {
             var m = UnlitMaterial()
             m.color = .init(tint: RGBA.white.platformColor, texture: .init(skyDarkTexture))
@@ -99,7 +101,6 @@ final class EnvironmentEntity {
             dome.model?.materials = [m]
             return
         }
-        themeTask?.cancel()
         let tint = skyTintSource
         themeTask = Task { [weak self] in
             let image = await Task.detached(priority: .userInitiated) { TextureFactory.skyImage(theme: theme, tintSource: tint) }.value

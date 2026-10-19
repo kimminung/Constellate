@@ -146,6 +146,8 @@ final class SessionCoordinator {
         send(.roster(model.participants))
         send(.graphDigest(projectName: model.graph.projectName, nodeCount: model.graph.nodes.count, checksum: GraphDigest.checksum(model.graph)))
         send(.theme(model.theme))
+        send(.layoutStyle(model.layoutStyle))
+        send(.relationMode(model.relationMode))
         send(.timeDial(model.timeDial))
         send(.mode(model.meetingMode))
         if let tour = model.tour {
@@ -207,6 +209,10 @@ final class SessionCoordinator {
             model.goToStep(step, broadcast: false)
         case .followHost(let follow):
             model.followHost = follow
+        case .layoutStyle(let style):
+            model.setLayoutStyle(style, broadcast: false)
+        case .relationMode(let mode):
+            model.setRelationMode(mode, broadcast: false)
         }
     }
 

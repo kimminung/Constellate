@@ -18,6 +18,17 @@ import Testing
         #expect(GraphDigest.checksum(decoded) == GraphDigest.checksum(graph))
     }
 
+    @Test func edgesKeepTheirRelationAndNodesTheirRole() throws {
+        let data = try JSONEncoder().encode(graph)
+        let decoded = try JSONDecoder().decode(CodeGraph.self, from: data)
+        #expect(decoded.edges.compactMap(\.relation).count == graph.edges.compactMap(\.relation).count)
+        #expect(decoded.nodes.compactMap(\.role).count == graph.nodes.compactMap(\.role).count)
+        // Graphs encoded before roles / relations existed still decode (both fields are optional).
+        let legacyEdge = #"{"from":{"raw":"a"},"to":{"raw":"b"},"kind":"references","weight":1}"#
+        let edge = try JSONDecoder().decode(CodeEdge.self, from: Data(legacyEdge.utf8))
+        #expect(edge.relation == nil && edge.semantic == .uses)
+    }
+
     @Test func layoutRoundTrips() throws {
         let layout = ConstellationLayoutEngine().layout(graph)
         let data = try JSONEncoder().encode(layout)
@@ -58,7 +69,9 @@ import Testing
             .graphDigest(projectName: graph.projectName, nodeCount: graph.nodes.count, checksum: GraphDigest.checksum(graph)),
             .summon(nodeID: graph.rootID, by: ParticipantID("p1"), reason: "test"),
             .tour(tour),
-            .timeDial(0.25)
+            .timeDial(0.25),
+            .layoutStyle(.celestial),
+            .relationMode(.focus)
         ]
         let data = try JSONEncoder().encode(messages)
         let decoded = try JSONDecoder().decode([ConstellateMessage].self, from: data)

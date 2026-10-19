@@ -70,6 +70,17 @@ struct ConstellateCommands: Commands {
             Button("Reset Time Dial") { model.setTimeDial(0) }
                 .keyboardShortcut("0", modifiers: [.command, .option])
             Divider()
+            Menu("Layout") {
+                ForEach(Array(LayoutStyle.allCases.enumerated()), id: \.element) { index, style in
+                    Button(style.label) { model.setLayoutStyle(style) }
+                        .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: [.command, .control])
+                }
+            }
+            Button("Cycle Relations (Off → Focus → All)") { model.cycleRelationMode() }
+                .keyboardShortcut("l", modifiers: .command)
+            Button("Show All Relation Kinds") { model.showAllRelations() }
+                .disabled(model.hiddenRelations.isEmpty)
+            Divider()
             Toggle("Speak Replies", isOn: Binding(get: { model.speakReplies }, set: { model.speakReplies = $0 }))
             Toggle("Screenshot Mode", isOn: Binding(get: { model.screenshotMode }, set: { model.screenshotMode = $0 }))
             Divider()

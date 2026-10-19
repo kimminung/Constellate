@@ -1,3 +1,4 @@
+import ConstellateKit
 import Foundation
 import RealityKit
 import SwiftUI
@@ -12,6 +13,12 @@ enum MeshFactory {
     static let unitFrame: MeshResource = .generatePlane(width: 1.07, height: Float(TextureFactory.cardHeight) / Float(TextureFactory.cardWidth) + 0.07, cornerRadius: 0.06)
     static let unitSphere: MeshResource = .generateSphere(radius: 1)
     static let pinSphere: MeshResource = .generateSphere(radius: 0.035)
+    /// Card-sized quad for `FX_CardGlow`: the card plus 0.08 on every side (Blender: `CARD_GLOW_MARGIN`).
+    static let unitCardGlow: MeshResource = .generatePlane(width: 1.16, height: Float(TextureFactory.cardHeight) / Float(TextureFactory.cardWidth) + 0.16)
+    /// 1 m quad facing +Z for sprites (particles, ripples); scale it to size.
+    static let spriteQuad: MeshResource = .generatePlane(width: 1, height: 1)
+    /// Particle stand-in when the sprite textures are missing.
+    static let particleSphere: MeshResource = .generateSphere(radius: 0.16)
 
     private static var ringCache: [String: MeshResource] = [:]
 
@@ -49,6 +56,23 @@ enum MeshFactory {
             return try MeshResource.generate(from: [descriptor])
         } catch {
             print("[MeshFactory] line mesh failed: \(error)")
+            return nil
+        }
+    }
+
+    /// Relation tubes and arrowheads from the Kit's `TubeMesh`. `uv.x` runs 0 → 1 along each edge in flow
+    /// direction, so the `FX_EdgeRamp` texture brightens every edge toward its target.
+    static func mesh(from tube: TubeMesh, name: String) -> MeshResource? {
+        guard !tube.isEmpty else { return nil }
+        var descriptor = MeshDescriptor(name: name)
+        descriptor.positions = MeshBuffers.Positions(tube.positions)
+        descriptor.normals = MeshBuffers.Normals(tube.normals)
+        descriptor.textureCoordinates = MeshBuffers.TextureCoordinates(tube.uvs)
+        descriptor.primitives = .triangles(tube.indices)
+        do {
+            return try MeshResource.generate(from: [descriptor])
+        } catch {
+            print("[MeshFactory] tube mesh failed: \(error)")
             return nil
         }
     }

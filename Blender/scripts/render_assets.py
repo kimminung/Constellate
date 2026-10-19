@@ -171,7 +171,7 @@ def render_theme(name, tinted):
 
 # ---------------------------------------------------------------------------- asset sheet
 SHEET = [
-    ("HostOrb", A.build_host_orb, {}, "HostOrb\nr 0.12 m"),
+    ("HostOrb", A.build_host_orb, {}, "HostOrb\nr 0.135 m"),
     ("ClusterOrb", A.build_cluster_orb, {}, "ClusterOrb\nr 0.18 m"),
     ("Avatar_Bust", A.build_avatar_bust, {"yaw_deg": 180}, "Avatar_Bust\nh 0.45 m"),
     ("Beacon", A.build_beacon, {}, "Beacon\nh 3.0 m"),
@@ -200,7 +200,7 @@ def render_asset_sheet():
         centre_z = (lo.z + hi.z) / 2 * s
         holder.location.z = 0.42 - centre_z
         if key == "Pointer_Dart":
-            holder.rotation_euler = (0, 0, math.radians(180))
+            holder.rotation_euler = (0, 0, math.radians(90))   # show the crystal's profile, tip to the right
         txt = L.add_text(f"Label_{key}", label, size=0.055, location=(x0 + i * spacing, 0, 0.02), rotation=(math.pi / 2, 0, 0))
         L.assign(txt, label_mat)
         all_objs += objs + [txt]
@@ -211,7 +211,7 @@ def render_asset_sheet():
     _scale_lights(all_objs, 0.5)
     out = os.path.join(L.RENDERS_DIR, "asset_sheet.png")
     t0 = time.time()
-    size = L.render_to(sc, out, W, H)
+    size = L.render_to(sc, out, 1600, 640)   # a strip: the row fills the frame instead of floating in empty sky
     print(f"[constellate] render asset_sheet: {size} bytes in {time.time() - t0:.1f}s")
     return out
 

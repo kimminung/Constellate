@@ -1,11 +1,13 @@
-"""One-shot pipeline: USDZ assets -> textures -> renders -> app icon.
+"""One-shot pipeline: USDZ assets -> graph assets + FX -> textures -> renders -> graph renders -> app icon.
 
   /Applications/Blender.app/Contents/MacOS/Blender --background --python build_all.py -- [options]
 
 Options
-  --skip-assets     don't rebuild Constellate/Resources/Assets3D/*.usdz
+  --skip-assets     don't rebuild Constellate/Resources/Assets3D/*.usdz (meeting assets)
+  --skip-graph      don't rebuild NodeStars.usdz and the FX_*.png sprites (build_graph_assets.py)
   --skip-textures   don't re-render Sky_Dark / Sky_Tint / Floor_Grid (reuse existing files)
-  --skip-renders    don't produce Blender/renders/*.png
+  --skip-renders    don't produce Blender/renders/*.png (asset + theme renders)
+  --skip-graph-renders  don't render the layout gallery / legends from Blender/data/*.json (render_graph.py)
   --skip-icons      don't run render_icons.py (iOS light/dark/tinted, macOS tile, visionOS layers, icon sheet)
   --legacy-icon     also render the old single AppIcon via render_assets.py (superseded by render_icons.py)
   --fallback-sky    generate the sky with numpy instead of Cycles (fast, ~seconds)
@@ -28,6 +30,11 @@ if "--skip-assets" not in argv:
     import build_assets
     build_assets.build_and_export()
 
+if "--skip-graph" not in argv:
+    import build_graph_assets
+    build_graph_assets.export_node_stars()
+    build_graph_assets.build_fx()
+
 if "--skip-textures" not in argv:
     import build_textures
     build_textures.build_textures(force_fallback="--fallback-sky" in argv)
@@ -35,6 +42,10 @@ if "--skip-textures" not in argv:
 if "--skip-renders" not in argv:
     import render_assets
     render_assets.render_all(names=None, icon="--legacy-icon" in argv)
+
+if "--skip-graph-renders" not in argv:
+    import render_graph
+    render_graph.main([])
 
 if "--skip-icons" not in argv:
     import render_icons

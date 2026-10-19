@@ -47,11 +47,18 @@ enum AssetLoader {
 
     private static var glowDotTexture: TextureResource?
 
-    /// Shared additive particle sprite.
+    /// Shared additive particle sprite: the Blender `FX_Glow` (premultiplied, so additive blending fades with
+    /// it), else the CoreGraphics dot.
     static func glowDot() async -> TextureResource? {
         if let glowDotTexture { return glowDotTexture }
-        guard let image = await Task.detached { TextureFactory.glowDot() }.value else { return nil }
-        let texture = await texture(image, semantic: .raw, mipmaps: false)
+        let sprite: SendableImage?
+        if let fx = await image(named: FXTextures.Sprite.glow.rawValue) {
+            sprite = await Task.detached(priority: .utility) { TextureFactory.premultiplied(fx) }.value
+        } else {
+            sprite = await Task.detached(priority: .utility) { TextureFactory.glowDot() }.value
+        }
+        guard let sprite else { return nil }
+        let texture = await texture(sprite, semantic: .raw, mipmaps: false)
         glowDotTexture = texture
         return texture
     }
@@ -91,7 +98,7 @@ enum AssetLoader {
 
     private static func isAccent(_ material: any Material, entityName: String) -> Bool {
         if entityName.localizedCaseInsensitiveContains("accent") { return true }
-        if let shader = material as? ShaderGraphMaterial, "\(shader.name)".localizedCaseInsensitiveContains("accent") { return true }
+        if let shader = material as? ShaderGraphMaterial, (shader.name ?? "").localizedCaseInsensitiveContains("accent") { return true }
         if let pbr = material as? PhysicallyBasedMaterial {
             if let emissive = (pbr.emissiveColor.color as PlatformColor?)?.rgba, matchesAccent(emissive) { return true }
             if let tint = (pbr.baseColor.tint as PlatformColor?)?.rgba, matchesAccent(tint) { return true }

@@ -1,12 +1,12 @@
 # Constellate — 태스크 문서 v1.2
 PRD: `Docs/PRD-Tech-Constellate.md` (v1.0) · 디자인: `Docs/PRD-Design-Constellate.md` · 스펙: `Docs/VISION.md`
-상태: **M0·M1·M2·M3 완료, M4·M5·M6 구현 완료(2차 라운드: 스트리밍 채팅·TTS·포인터 제스처·Accent 재틴트·핀 내보내기·follow-host 카메라), 실기기 미검증, M7 진행 (2026-10-19, PR #1 머지 후)** · 기준 환경: **Xcode 27 / visionOS 27 · iPadOS 27 · macOS 27**
+상태: **M0·M1·M2·M3 완료, M4·M5·M6 구현 완료(2차 라운드: 스트리밍 채팅·TTS·포인터 제스처·Accent 재틴트·핀 내보내기·follow-host 카메라), 실기기 미검증, M7 진행, M8 별자리 언어 v2(3차 라운드: 관계 11종·레이아웃 6종·노드 별·의존 분석·Blender v2 에셋/FX/하늘/바닥) — macOS 빌드·실행 확인(경고 0), iPadOS·visionOS 빌드 확인 대기 (2026-10-19)** · 기준 환경: **Xcode 27 / visionOS 27 · iPadOS 27 · macOS 27**
 작성자: 김민웅(콜슨)
 
 범례: 🔴 P0 (핵심 체험) / 🟡 P1 (완성도) / ⚪ P2 (여유 시)
 상태: `[x]` 완료 · `[~]` 진행 중/부분 · `[ ]` 미착수
 각 태스크는 독립 빌드·검증 가능한 단위. 순서 = 의존성 순서.
-회귀 확인 명령은 문서 끝 "회귀 확인" 절 참조. 현재 결과: `swift test` **54 테스트 / 9 스위트 통과**, `Scripts/build.sh all` **exit=0 ×3**.
+회귀 확인 명령은 문서 끝 "회귀 확인" 절 참조. 현재 결과: `swift test` **99 테스트 통과**(3차 라운드, Linux Swift 6.0.3에서 확인 — 앱이 쓰는 Kit 공개 API를 일반 `import`로 컴파일하는 `AppFacingAPITests` 포함), Xcode 27 macOS(My Mac) 빌드·실행 성공, **경고 0**(3차 라운드 전 35건 → 0, 2026-10-19), `Scripts/build.sh all`의 iPadOS·visionOS 시뮬레이터 빌드는 재확인 필요(T8.10).
 
 ---
 
@@ -132,6 +132,27 @@ PRD: `Docs/PRD-Tech-Constellate.md` (v1.0) · 디자인: `Docs/PRD-Design-Conste
 | T7.7 | 🟡 | [ ] | 상태 복원(북마크·테마·다이얼) | `App/AppModel+Persistence.swift` | 재실행 복원 |
 | T7.8 | ⚪ | [ ] | 온보딩 오버레이(첫 실행: 웨이크워드·dock·다이얼 안내) | `Views/Onboarding.swift` | 1회 표시 |
 
+## M8. 별자리 언어 v2 — 관계 · 레이아웃 · 에셋 (2026-10-19 3차 라운드)
+
+목표: 그래프를 "납작한 원반 + 회색 선"에서 **여러 차원을 동시에 읽히는 별자리**로 — 모양(레이아웃 스타일)·관계의 의미(종류·방향·흐름)·노드의 역할과 결합도·의존 순환을 한 공간에서. 그래프 형태는 CoulsonPortfolioWeb `Public/js/space/`(relations.js, layouts/*)를 최대한 포팅했다.
+
+| ID | 우선 | 상태 | 태스크 | 산출물 | 완료 기준 |
+|---|---|---|---|---|---|
+| T8.1 | 🔴 | [x] | 관계 의미 모델 — `RelationKind` 11종(포트폴리오 `EDGE_TYPES`: 색·점선·flow·lane·altitude·priority·KO/EN 라벨), `CodeRole` 12종(`ROLES`·`inferRole`), `CodeEdge.relation` / `CodeNode.role`(Codable 하위 호환) | `Graph/RelationKind.swift`, `Graph/CodeGraph.swift` | `RelationTests` |
+| T8.2 | 🔴 | [x] | 관계 분류기 — 바인딩 래퍼·프레젠테이션 문맥·생성·알림 post/observe·delegate/datasource, extension → `extends`, 인제스트·샘플 그래프에 적용 | `Ingest/RelationClassifier.swift`, `SwiftSymbolExtractor`, `ProjectIngestor`, `SampleGraph` | Constellate 자신(97 파일) 도그푸딩: uses 258 · creates 101 · imports 42 · binds 20 · composes 11 · extends 6 · presents 5 |
+| T8.3 | 🔴 | [x] | 레이아웃 스타일 6종 — `.celestial`(신규 기본: 깊이 = 거리, 서브트리 = 방위, 레이어 = 고도각, 최근 = 바깥) + 포트폴리오 포팅 `.sphere` `.treeRadial` `.wall` `.spiral` + v1 `.shells`; 스타일별 시간 투영(구면/원통), `boundingSphere` | `Layout/{LayoutStyle,LayoutContext,SphereLayout,TreeRadialLayout,WallLayout,SpiralLayout}.swift`, `RadialShellLayout`, `ConstellationLayout` | `LayoutStyleTests`: 모든 노드 배치 · 카드 비겹침 · 바닥 여유 · 결정성 |
+| T8.4 | 🔴 | [x] | 엣지 씬 빌더 — 2차 베지어 + lane 회전, 점선, 화살촉, flow 경로, off/focus/all, 범례 숨김, 예산(1500/600/2500/240), 포커스 확장·`related`, 순환 강조, 평행 이동 프레임 튜브 메시 | `Geometry/EdgeScene.swift` | `EdgeSceneTests`, 샘플 빌드 ~43 ms(release) |
+| T8.5 | 🔴 | [x] | 의존 분석 — 파일 단위 의존, 반복형 Tarjan 순환, impact/reach, Martin 지표, 값싼 `fanIn/fanOut`, `cycleMembers` | `Graph/GraphInsights.swift` | `RelationTests`, `InspectorDigestTests` |
+| T8.6 | 🟡 | [x] | 노드 별 인코딩 + 인스펙터 다이제스트 — `StarEncoder`(모양·색·크기·발광·헤일로·`anchor`), `RelationDigest`(종류 × 방향 그룹, 멤버 접기, KO/EN 문구), `ConstellationSnapshot`(+범례) | `Geometry/NodeStars.swift`, `Graph/RelationDigest.swift`, `Geometry/ConstellationSnapshot.swift` | `StarEncoderTests`, `InspectorDigestTests`, `SnapshotTests` |
+| T8.7 | 🔴 | [x] | Blender v2 에셋 "관측 기기" — 7종 재디자인(혼천의 호스트 오브 등), `NodeStars.usdz` 15 글리프, FX 스프라이트 6종(`Field` 수식 → Cycles → 선형 EXR → 알파) | `Blender/scripts/{build_assets,build_graph_assets,constellate_lib}.py`, `Resources/Assets3D/*.usdz`(8), `Resources/Textures/FX_*.png`(6) | 8 USDZ ARKit 규칙 통과, 예산 내 |
+| T8.8 | 🟡 | [x] | 환경 텍스처 v2 — 은하수·별 등급 4단계·성운 2층 하늘(L ≤ 0.29, chroma ≤ 0.06), 셸 반지름에 맞춘 아스트롤라베 바닥 | `build_textures.py`, `Sky_Dark/Sky_Tint/Floor_Grid.png` | 테마 규칙 측정 통과 |
+| T8.9 | 🟡 | [x] | 별자리 렌더 — Kit 스냅샷 JSON으로 레이아웃 6종 + 사용자 시점 + 갤러리 + 별/관계 범례 | `render_graph.py`, `Blender/data/*.json`, `Blender/renders/{layout_*,node_stars,relation_legend}.png` | README·PRD 갤러리 |
+| T8.10 | 🔴 | [~] | 앱 통합 — `AppModel`(layoutStyle·relationMode·hiddenRelations 영속, insights, `relationSummary` → 호스트 AI 문맥), `EdgeRenderer`(Kit 빌더 + `FX_EdgeRamp` 튜브 + `FlowParticles`), `NodeStarFactory`, `FXTextures`, 카드 역할 칩·결합도 부제·`FX_CardGlow` 선택·포커스 디밍·순환 헤일로, 비콘 `FX_Ring`/`FX_Beam`, 오브 오라 `FX_Glow`, 레이아웃 피커·관계 모드·범례(대시보드·툴바·⌘L·⌃⌘1…6 메뉴), 인스펙터 결합도·관계 그룹, SharePlay `.layoutStyle` / `.relationMode` | `App/`, `Spatial/`, `Views/RelationLegendView.swift`, `InspectorView`, `DashboardView`, `Session/SessionCoordinator` | 독립 리뷰(교차 모듈 컴파일 프로브) 반영: `EdgeScene` 공개 init(컴파일 오류), 재빌드 뒤 선택·하이라이트·핀·비콘·소환 재적용, 취소된 빌드의 중복 카드, 하이라이트 후 디밍 갱신·선택 내용물 비디밍, 레이아웃/설치/클러스터 세대 토큰, 빌드 중 테마 변경, 선택 엣지 재빌드 60 ms 디바운스, 하늘 우선 로드(+첫 rebuild 테마 재적용), 재빌드 시 소환 복제 유지(가이드만 이동), 틴트→다크 하늘 경쟁, 핀 배치(별 오른쪽·미터 단위·핀 에셋 이중 축소 수정) — 2차 재검토로 확인 · Xcode macOS 빌드·실행 확인(경고 0, 인스펙터 결합도·관계 그룹·포커스 디밍 동작 확인) · **남은 것: iPadOS·visionOS 시뮬레이터 빌드(`Scripts/build.sh all`)와 육안 점검** |
+| T8.11 | 🟡 | [ ] | 성능 확인 — 2500 카드 + 별 1200 + 튜브 1500 + 파티클 240에서 visionOS 90 fps, 엣지 재빌드(선택 변경마다) 지연 | 측정 | NFR-1 표 |
+| T8.12 | ⚪ | [ ] | 앱 아이콘 재렌더 — 아이콘은 v1 호스트 오브 그대로(`render_icons.py` 미실행) | `Assets.xcassets/AppIcon*` | 결정 후 |
+| T8.13 | 🟡 | [x] | 관계 검색 — `CodeSearcher`가 "presents X" / "observed by X" / "X를 띄우는" 등 관계 구문을 제약으로 해석(대상이 그래프에 없으면 자유 텍스트로 강등), 호스트 AI `locateCode` 설명·`explainNode` 문맥에 관계 다이제스트 | `Search/CodeSearcher.swift`, `AI/HostAI.swift` | `RelationSearchTests` |
+| T8.14 | 🟡 | [x] | 앱 대면 API 가드 — Kit의 다른 테스트는 `@testable import`라 `internal` 누락을 못 잡는다. 일반 `import`로 앱이 호출하는 v2 API(관계 레이어·별·인스펙터·범례·세션 메시지)를 컴파일·호출하는 스위트 | `Tests/ConstellateKitTests/AppFacingAPITests.swift` | Xcode 없이 리눅스 `swift test`에서 접근 수준 회귀 검출 |
+
 ---
 
 ## 알려진 갭 (2026-10-19 2차 라운드 후, 솔직한 목록)
@@ -148,6 +169,9 @@ PRD: `Docs/PRD-Tech-Constellate.md` (v1.0) · 디자인: `Docs/PRD-Design-Conste
 | 실기기 검증 미실시 — Vision Pro, 2기기 SharePlay, Apple Intelligence 실응답 | 시뮬레이터 폴백 경로만 확인됨 | T4.9 · T5.8 · T6.11 |
 | macOS 스크린샷 없음(화면 기록 권한) | README 갤러리에 macOS 누락 | T7.3 |
 | Blender MCP 미연결(CLI만 사용) | MCP 경로 산출물 동일성 미검증 | T7.6 |
+| 3차 라운드 앱 코드는 macOS로만 빌드 확인 — `#if os(visionOS)`·UIKit 분기(비전 대시보드 별자리 패널, 파티클 Billboard, iPad ⌘L 단축키, Reduce Motion)는 아직 컴파일되지 않음 | iPadOS·visionOS 첫 빌드에서 사소한 오류가 나올 수 있음 | T8.10 |
+| 선택이 바뀔 때마다 관계 메시 전체 재빌드(백그라운드, 60 ms 디바운스로 연속 클릭은 1회로 합침) | 대형 그래프에서 포커스 반응 지연 가능(메시 생성은 메인 액터) | T8.11 |
+| 별 글리프 = 카드당 엔티티 1개(최대 1200) | 드로콜 증가 | T8.11 |
 
 ## 의존성 요약
 
@@ -178,7 +202,7 @@ M0 ─→ M1 (Kit) ─→ M2 (씬) ─→ M3 (오브·인스펙터) ─→ M4 (�
 **주의**: `Scripts/build.sh`의 캐시 경로가 한때 상대 경로 `~/`로 풀려 저장소 안에 `~/Library/Caches/ConstellateBuild` 폴더가 생성·커밋된 적이 있다(main에서 제거, `.gitignore`에 추가됨). 커밋 전 `git status`에 `~/` 디렉터리가 보이면 추가하지 말 것.
 
 ```sh
-cd ConstellateKit && swift test          # Kit 단위 테스트 — 현재 54 테스트 / 9 스위트 통과
+cd ConstellateKit && swift test          # Kit 단위 테스트 — 현재 99 테스트 통과 (AppFacingAPITests = 앱 대면 공개 API 가드)
 Scripts/build.sh all                     # macOS · iPadOS 시뮬레이터 · visionOS 시뮬레이터 3 빌드, 각 exit=0
 ```
 
@@ -187,6 +211,7 @@ Scripts/build.sh all                     # macOS · iPadOS 시뮬레이터 · vi
 ```sh
 for f in Docs/diagrams/*.svg; do xmllint --noout "$f"; done   # 다이어그램 XML 검증
 for f in Constellate/Resources/Assets3D/*.usdz; do usdchecker --arkit "$f"; done   # 에셋 검증 (Blender 번들 pxr 또는 usd-core)
+(cd ConstellateKit && CONSTELLATE_SNAPSHOT_DIR=../Blender/data swift test --filter SnapshotTests)   # 별자리 렌더 입력 갱신
 ```
 
 ## 파일 배치 (구현됨)
@@ -195,9 +220,10 @@ for f in Constellate/Resources/Assets3D/*.usdz; do usdchecker --arkit "$f"; done
 Constellate/
   App/        ConstellateApp.swift, AppModel.swift
   Views/      DashboardView, NavigatorView, InspectorView(+CodeInspectorWindow), CodeCardView, HostChatView,
-              ThemePickerView, TimeDialView, ParticipantsView, TourBarView, VoiceButton
+              ThemePickerView, TimeDialView, ParticipantsView, TourBarView, VoiceButton,
+              RelationLegendView (LayoutStylePicker · RelationModePicker · RelationSwatch · RelationToolbarControl)
   Spatial/    ConstellationSceneController, CodeNodeEntity, OrbEntity, BeaconEntity, AvatarEntity, EnvironmentEntity,
-              EdgeRenderer, MeshFactory, TextureFactory, AssetLoader
+              EdgeRenderer(+FlowParticles), NodeStarFactory, FXTextures, MeshFactory, TextureFactory, AssetLoader
   Platform/   OrbitCameraRig, ConstellationViewport (iPad/Mac), ConstellationImmersiveView + HeadPoseProvider (visionOS),
               ScrollWheelMonitor (macOS)
   AI/         HostAI (LanguageModelSession · streamChat · 5 Tools · LocateAnswer/TourAnswer · 복구), HeuristicHost
@@ -205,11 +231,16 @@ Constellate/
   Session/    ConstellateActivity, SessionCoordinator
   Support/    ColorBridge, SourceProvider, SyntaxHighlighter, PinsExporter
   Constellate.entitlements
-  Resources/  Assets3D/*.usdz (7), Textures/*.png (3)
+  Resources/  Assets3D/*.usdz (8: 회의 에셋 7 + NodeStars), Textures/*.png (9: Sky_Dark · Sky_Tint · Floor_Grid · FX_* 6)
   Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png, icon_16…1024.png
-ConstellateKit/Sources/ConstellateKit/{Graph(+Analysis),Ingest,Layout,Cluster,Search,Tour,Theme,Session,Sample}
-ConstellateKit/Tests/ConstellateKitTests/{Theme,Extractor,Ingestor,Layout,Cluster,Search,Tour,SampleGraph,Codable}Tests.swift + Fixtures/
-Blender/scripts/{constellate_lib,build_assets,build_textures,render_assets,build_all}.py, make_icon_set.sh, README.md
-Blender/renders/{host_orb,cluster_orb,avatar_bust,beacon,review_pin,stage_ring,pointer_dart,theme_dark,theme_tinted_ocean,asset_sheet}.png
+ConstellateKit/Sources/ConstellateKit/{Graph(+Analysis, RelationKind, GraphInsights, RelationDigest),Ingest(+RelationClassifier),
+              Layout(LayoutStyle, LayoutContext, RadialShell, Sphere, TreeRadial, Wall, Spiral),Geometry(EdgeScene, NodeStars, ConstellationSnapshot),
+              Cluster,Search,Tour,Theme,Session,Sample}
+ConstellateKit/Tests/ConstellateKitTests/{Theme,Extractor,Ingestor,Layout,LayoutStyle,Relation(+InspectorDigest),EdgeScene(+StarEncoder),Snapshot,
+              Cluster,Search,Tour,SampleGraph,Codable,AppFacingAPI}Tests.swift + Fixtures/
+Blender/scripts/{constellate_lib,build_assets,build_graph_assets,build_textures,render_assets,render_graph,render_icons,build_all}.py, make_icon_set.sh, README.md
+Blender/data/orbitnotes_{celestial,shells,sphere,treeRadial,wall,spiral}.json
+Blender/renders/{host_orb,cluster_orb,avatar_bust,beacon,review_pin,stage_ring,pointer_dart,theme_dark,theme_tinted_ocean,asset_sheet,
+              layout_<style>×6,layout_celestial_eye,layout_gallery,node_stars,relation_legend}.png
 Docs/  PRD-Tech-Constellate.md  PRD-Design-Constellate.md  TASKS-Constellate.md  VISION.md  diagrams/  images/
 ```

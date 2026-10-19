@@ -59,6 +59,7 @@ struct ConstellationImmersiveView: View {
         .onChange(of: model.timeDial) { controller.setTimeDial(model.timeDial) }
         .onChange(of: model.selectedNodeID) { controller.setSelection(model.selectedNodeID) }
         .onChange(of: model.highlightedNodeIDs) { controller.setHighlights(model.highlightedNodeIDs) }
+        .onChange(of: model.relationRevision) { controller.setRelationOptions(mode: model.relationMode, hidden: model.hiddenRelations) }
         .onChange(of: model.beacons) { controller.setBeacons(model.beacons, pinned: model.pinnedBeacons) }
         .onChange(of: model.pinnedBeacons) { controller.setBeacons(model.beacons, pinned: model.pinnedBeacons) }
         .onChange(of: model.summonedNodeID) { controller.setSummoned(model.summonedNodeID) }
@@ -82,7 +83,9 @@ struct ConstellationImmersiveView: View {
     }
 
     private func rebuild() {
-        controller.rebuild(graph: model.graph, layout: model.layout, clusters: model.clusters, theme: model.theme, timeDial: model.timeDial, projectRoot: model.projectRootURL)
+        controller.setRelationOptions(mode: model.relationMode, hidden: model.hiddenRelations)
+        controller.rebuild(graph: model.graph, layout: model.layout, clusters: model.clusters, theme: model.theme, timeDial: model.timeDial,
+                           projectRoot: model.projectRootURL, insights: model.insights)
         controller.setSelection(model.selectedNodeID)
         controller.setHighlights(model.highlightedNodeIDs)
         controller.setPins(model.pins)

@@ -19,7 +19,8 @@ public struct CodeSearchHit: Hashable, Sendable, Identifiable {
 ///
 /// Understands: fuzzy names and paths, kind words (view, model, test, protocol, actor, extension, enum,
 /// function, folder, file), tag phrases (`@State`, `@Observable`, `async`, `SwiftUI`, `@main` / entry point),
-/// structural phrases ("inherits X", "conforms to X", "imports Y", "uses Z", "in folder F"), and Korean
+/// structural phrases ("inherits X", "conforms to X", "imports Y", "uses Z", "in folder F"), relation phrases
+/// ("presents X", "observed by X", "creates X", "embedded in X", "X를 띄우는"), and Korean
 /// equivalents (뷰, 모델, 테스트, 프로토콜, 액터, 익스텐션, 열거형, 함수, 폴더, 파일, 상속, 임포트, 사용하는, 진입점).
 ///
 /// Scoring: name exact 10 · prefix 6 · substring 4 · camel-case initials 5 · fuzzy (Levenshtein ≤ 2) 3 ·
@@ -29,7 +30,8 @@ public struct CodeSearcher: Sendable {
     public init() {}
 
     public func search(_ query: String, in graph: CodeGraph, limit: Int = 12) -> [CodeSearchHit] {
-        let parsed = ParsedQuery(query)
+        var parsed = ParsedQuery(query)
+        parsed.resolveRelations(in: graph)
         guard parsed.hasCriteria else { return [] }
 
         var hits: [CodeSearchHit] = []
@@ -48,8 +50,9 @@ public struct CodeSearcher: Sendable {
 
     /// Describes how `query` was understood (kind, tags, structural constraints, free text).
     /// Shown in the AI bubble so people can see why results came back.
-    public func explainQuery(_ query: String) -> String {
-        let p = ParsedQuery(query)
+    public func explainQuery(_ query: String, in graph: CodeGraph? = nil) -> String {
+        var p = ParsedQuery(query)
+        if let graph { p.resolveRelations(in: graph) }
         var parts: [String] = []
         if let kind = p.kind { parts.append("kind = \(kind.label)") }
         if !p.tags.isEmpty { parts.append("tags: " + p.tags.sorted().joined(separator: ", ")) }
@@ -109,6 +112,9 @@ public struct CodeSearcher: Sendable {
         case imports(String)
         case references(String)
         case inFolder(String)
+        /// A classified relation (`RelationKind`) to (`outgoing`) or from a node named `name` —
+        /// "presents SettingsView", "observed by NoteListView", "SettingsView를 띄우는".
+        case related(RelationKind, outgoing: Bool, String)
 
         var description: String {
             switch self {
@@ -116,9 +122,31 @@ public struct CodeSearcher: Sendable {
             case .imports(let n): "imports \(n)"
             case .references(let n): "uses \(n)"
             case .inFolder(let n): "inside folder \(n)"
+            case .related(let kind, let outgoing, let n):
+                "\(kind.phrase(outgoing: outgoing).components(separatedBy: " · ").first ?? kind.rawValue) \(n)"
             }
         }
     }
+
+    /// Relation verbs understood in queries: active forms take the object after them ("presents X"), Korean
+    /// forms take it before ("X를 띄우는"); passive forms take "by / in / from X" ("presented by X").
+    static let activeRelationVerbs: [String: RelationKind] = [
+        "presents": .presents, "present": .presents, "presenting": .presents, "navigates": .presents, "navigate": .presents,
+        "observes": .binds, "observe": .binds, "observing": .binds, "binds": .binds, "bind": .binds, "watches": .binds,
+        "creates": .creates, "create": .creates, "creating": .creates, "instantiates": .creates, "instantiate": .creates,
+        "embeds": .composes, "embed": .composes, "embedding": .composes, "composes": .composes, "compose": .composes,
+        "delegates": .delegates
+    ]
+    static let passiveRelationVerbs: [String: RelationKind] = [
+        "presented": .presents, "observed": .binds, "bound": .binds, "created": .creates, "instantiated": .creates,
+        "embedded": .composes, "composed": .composes, "notified": .notifies
+    ]
+    static let koreanRelationVerbs: [String: RelationKind] = [
+        "띄우는": .presents, "띄우기": .presents, "여는": .presents, "이동하는": .presents, "전환하는": .presents,
+        "관찰하는": .binds, "구독하는": .binds, "바인딩하는": .binds,
+        "생성하는": .creates, "만드는": .creates,
+        "포함하는": .composes, "품는": .composes
+    ]
 
     struct ParsedQuery: Sendable {
         var kind: KindWord?
@@ -128,6 +156,27 @@ public struct CodeSearcher: Sendable {
         var freeTokens: [String] = []
 
         var hasCriteria: Bool { kind != nil || !tags.isEmpty || !constraints.isEmpty || !freeTokens.isEmpty }
+
+        /// A relation phrase only constrains when its object names something in the graph ("presents SettingsView");
+        /// otherwise ("creates notes") the object goes back to free text, so ordinary sentences keep matching names.
+        mutating func resolveRelations(in graph: CodeGraph) {
+            guard constraints.contains(where: { if case .related = $0 { return true } else { return false } }) else { return }
+            var known: Set<String> = []
+            for node in graph.nodes {
+                let n = node.name.lowercased()
+                known.insert(n)
+                if n.hasSuffix(".swift") { known.insert(String(n.dropLast(6))) }
+            }
+            var kept: [Constraint] = []
+            for c in constraints {
+                if case .related(_, _, let name) = c, !known.contains(name.lowercased()) {
+                    freeTokens.append(name.lowercased())
+                } else {
+                    kept.append(c)
+                }
+            }
+            constraints = kept
+        }
 
         static let stopWords: Set<String> = [
             "the", "a", "an", "that", "which", "who", "with", "and", "or", "of", "to", "me", "all", "any", "some",
@@ -196,6 +245,24 @@ public struct CodeSearcher: Sendable {
                 case "사용", "참조", "참조하는", "호출", "호출하는", "의존", "의존하는":
                     if let p = prev(), let name = ParsedQuery.identifier(tokens[p]) {
                         constraints.append(.references(name)); consumed[i] = true; consumed[p] = true
+                    }
+                case _ where CodeSearcher.activeRelationVerbs[t] != nil:
+                    // "presents X", "navigates to X", "delegates to X"
+                    var j = next(1)
+                    if let jj = j, ["to", "into"].contains(lower[jj]) { j = next(2) }
+                    if let j, let name = ParsedQuery.identifier(tokens[j]), KindWord.from(lower[j]) == nil, let kind = CodeSearcher.activeRelationVerbs[t] {
+                        constraints.append(.related(kind, outgoing: true, name)); consumed[i] = true; consumed[j] = true
+                        if j == i + 2 { consumed[i + 1] = true }
+                    }
+                case _ where CodeSearcher.passiveRelationVerbs[t] != nil:
+                    // "presented by X", "embedded in X", "notified from X"
+                    if let j = next(1), ["by", "in", "from", "into"].contains(lower[j]), let k = next(2),
+                       let name = ParsedQuery.identifier(tokens[k]), let kind = CodeSearcher.passiveRelationVerbs[t] {
+                        constraints.append(.related(kind, outgoing: false, name)); consumed[i] = true; consumed[j] = true; consumed[k] = true
+                    }
+                case _ where CodeSearcher.koreanRelationVerbs[t] != nil:
+                    if let p = prev(), let name = ParsedQuery.identifier(tokens[p]), let kind = CodeSearcher.koreanRelationVerbs[t] {
+                        constraints.append(.related(kind, outgoing: true, name)); consumed[i] = true; consumed[p] = true
                     }
                 case "in", "inside", "under", "within":
                     // "in folder F" / "in F" / "inside F folder"
@@ -418,6 +485,25 @@ public struct CodeSearcher: Sendable {
             let lower = name.lowercased()
             if node.kind == .folder && node.name.lowercased() == lower { return false }
             return graph.ancestors(of: node.id).contains { ($0.kind == .folder || $0.kind == .module) && $0.name.lowercased() == lower }
+        case .related(let relation, let outgoing, let name):
+            // Files, types and extensions answer relation queries; their members' edges count for them.
+            guard node.kind == .file || node.kind == .type || node.kind == .extensionDecl else { return false }
+            let lower = name.lowercased()
+            func named(_ id: NodeID) -> Bool {
+                guard let other = graph.node(id) else { return false }
+                let n = other.name.lowercased()
+                return n == lower || (n.hasSuffix(".swift") && n.dropLast(6) == lower)
+            }
+            let members = graph.subtree(of: node.id)
+            let inside = Set(members.map(\.id))
+            for member in members {
+                let edges = outgoing ? graph.outgoing(from: member.id) : graph.incoming(to: member.id)
+                for e in edges where e.semantic == relation {
+                    let other = outgoing ? e.to : e.from
+                    if !inside.contains(other) && named(other) { return true }
+                }
+            }
+            return false
         }
     }
 

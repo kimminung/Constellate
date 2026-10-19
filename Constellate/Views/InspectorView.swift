@@ -25,6 +25,9 @@ struct InspectorView: View {
                     if node.kind == .folder || node.kind == .file || node.kind == .module {
                         hubs(node)
                     }
+                    if node.kind != .folder && node.kind != .module {
+                        coupling(node)
+                    }
                     relations(node)
                     pins(node)
                     actions(node)
@@ -55,6 +58,15 @@ struct InspectorView: View {
                     .lineLimit(1)
                     .padding(.horizontal, 8).padding(.vertical, 3)
                     .background(model.theme.color(for: node.layer).swiftUIColor.opacity(0.25), in: Capsule())
+                if let role = node.role, !role.style.label.isEmpty {
+                    Label(role.style.label, systemImage: role.style.symbol)
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .foregroundStyle(role.style.color.swiftUIColor)
+                        .background(role.style.color.swiftUIColor.opacity(0.16), in: Capsule())
+                        .help("Role · 역할 (the star's shape in the constellation)")
+                }
                 Label(node.kind.rawValue, systemImage: "tag")
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
@@ -105,36 +117,108 @@ struct InspectorView: View {
         }
     }
 
-    private func relations(_ node: CodeNode) -> some View {
-        let out = model.graph.outgoing(from: node.id)
-        let inc = model.graph.incoming(to: node.id)
-        return VStack(alignment: .leading, spacing: 6) {
-            Text("Relations").font(.headline)
-            if out.isEmpty && inc.isEmpty {
-                Text("No relation edges.").font(.caption).foregroundStyle(.secondary)
+    /// Martin's coupling metrics for the node's file (GraphInsights): who leans on it, what it leans on, how far a
+    /// change would ripple, and whether it is tangled in a dependency cycle.
+    private func coupling(_ node: CodeNode) -> some View {
+        let m = model.metrics(for: node.id)
+        let cycle = model.insights.cycleMembers(of: node.id)
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Coupling · 결합도").font(.headline)
+            Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 4) {
+                GridRow {
+                    metric("\(m.fanIn)", "Fan-in · 의존받음", "Files that depend on this file (Ca)")
+                    metric("\(m.fanOut)", "Fan-out · 의존함", "Files this file depends on (Ce)")
+                }
+                GridRow {
+                    metric(m.instability.map { String(format: "%.2f", $0) } ?? "–", "Instability · 불안정도",
+                           "I = Ce / (Ca + Ce): 0 = stable foundation, 1 = free to change")
+                    metric("\(m.impact)", "Impact · 영향 범위", "Files that transitively depend on this one — what a change could ripple into")
+                }
             }
-            ForEach(Array(out.prefix(8).enumerated()), id: \.offset) { _, edge in
-                relationRow(edge, outgoing: true)
-            }
-            ForEach(Array(inc.prefix(8).enumerated()), id: \.offset) { _, edge in
-                relationRow(edge, outgoing: false)
+            if !cycle.isEmpty {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .foregroundStyle(EdgeBatchKey.cycleColor.swiftUIColor)
+                    Text("In a dependency cycle with \(cycle.count - 1) other file\(cycle.count == 2 ? "" : "s") · 순환 의존")
+                        .font(.caption)
+                    Spacer(minLength: 4)
+                    Button("Highlight") { model.setHighlights(cycle) }
+                        .controlSize(.small)
+                        .help("Highlight every file in the cycle; with Relations on, the loop is drawn in red")
+                }
             }
         }
     }
 
-    private func relationRow(_ edge: CodeEdge, outgoing: Bool) -> some View {
-        let other = outgoing ? edge.to : edge.from
-        return Button {
-            model.select(other)
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: outgoing ? "arrow.right" : "arrow.left")
-                    .foregroundStyle(model.theme.color(for: edge.kind).swiftUIColor)
-                Text(edge.kind.rawValue).font(.caption).foregroundStyle(.secondary)
-                Text(model.graph.node(other)?.name ?? other.raw).lineLimit(1)
+    private func metric(_ value: String, _ label: String, _ help: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(value).font(.title3.monospacedDigit().weight(.semibold))
+            Text(label).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+        }
+        .help(help)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(help)
+    }
+
+    /// Relations grouped by kind and direction ("Presents", "Observed by" …), members folded into the node.
+    private func relations(_ node: CodeNode) -> some View {
+        let groups = model.relationGroups(for: node.id)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Relations · 관계").font(.headline)
+                Spacer()
+                Button { model.cycleRelationMode() } label: {
+                    Label(model.relationMode.label, systemImage: model.relationMode.symbol).font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Relations drawn in the constellation (tap to cycle off → focus → all)")
+            }
+            if groups.isEmpty {
+                Text("No relations leave this node.").font(.caption).foregroundStyle(.secondary)
+            }
+            ForEach(groups) { group in
+                relationGroup(group)
             }
         }
-        .buttonStyle(.plain)
+    }
+
+    private func relationGroup(_ group: RelationGroup) -> some View {
+        let style = group.relation.style
+        let hidden = model.hiddenRelations.contains(group.relation)
+        return VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 8) {
+                RelationSwatch(color: style.color.swiftUIColor, dashed: style.dashed, flow: style.flow)
+                    .frame(width: 28, height: 10)
+                    .scaleEffect(x: group.outgoing ? 1 : -1, y: 1)   // incoming: the arrow points back at this node
+                Text(group.phrase).font(.caption.weight(.semibold))
+                if hidden {
+                    Image(systemName: "eye.slash").font(.caption2).foregroundStyle(.secondary)
+                        .help("Hidden in the constellation (legend)")
+                }
+                Spacer(minLength: 4)
+                Text(group.total.formatted()).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            FlowLayout(spacing: 6) {
+                ForEach(group.nodes, id: \.self) { other in
+                    Button { model.select(other) } label: {
+                        Text(model.graph.node(other)?.name ?? other.raw)
+                            .font(.caption)
+                            .lineLimit(1)
+                            .padding(.horizontal, 7).padding(.vertical, 3)
+                            .background(style.color.swiftUIColor.opacity(0.16), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                if group.total > group.nodes.count {
+                    Text("+\(group.total - group.nodes.count)")
+                        .font(.caption2)
+                        .padding(.horizontal, 6).padding(.vertical, 3)
+                        .background(.quaternary, in: Capsule())
+                }
+            }
+        }
+        .opacity(hidden ? 0.6 : 1)
     }
 
     private func pins(_ node: CodeNode) -> some View {

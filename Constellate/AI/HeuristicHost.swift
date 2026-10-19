@@ -2,7 +2,7 @@ import ConstellateKit
 import Foundation
 
 /// Reply from the host AI (either backend). `nodeIDs` are the nodes the answer is grounded in.
-struct HostReply: Sendable, Hashable {
+nonisolated struct HostReply: Sendable, Hashable {
     var text: String
     var nodeIDs: [NodeID]
 

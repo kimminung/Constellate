@@ -284,6 +284,195 @@ def join(objs, name):
     return objs[0]
 
 
+# ----------------------------------------------------------------------------- bmesh builders (refined assets)
+# All builders return a new mesh object at the origin (Blender Z-up, metres). Flat-shaded unless `smooth=True`.
+import bmesh  # noqa: E402
+
+
+def _bm_object(name, bm, smooth=False):
+    me = bpy.data.meshes.new(name)
+    bm.normal_update()
+    bm.to_mesh(me)
+    bm.free()
+    for poly in me.polygons:
+        poly.use_smooth = smooth
+    o = bpy.data.objects.new(name, me)
+    link(o)
+    return o
+
+
+def ring_band(name, radius, width, thickness, segments=128, smooth=True, chamfer=True):
+    """Flat ribbon ring in the XY plane: rectangular profile `width` (radial) x `thickness` (Z), chamfered edges
+    (8-point profile) or a plain box profile (`chamfer=False`, half the triangles) for small / distant rings."""
+    bm = bmesh.new()
+    w, t, c = width / 2, thickness / 2, min(width, thickness) * 0.18
+    # profile (radial offset, z) – an octagon-ish chamfered rectangle
+    if chamfer:
+        prof = [(w, t - c), (w - c, t), (-w + c, t), (-w, t - c), (-w, -t + c), (-w + c, -t), (w - c, -t), (w, -t + c)]
+    else:
+        prof = [(w, t), (-w, t), (-w, -t), (w, -t)]
+    rings = []
+    for i in range(segments):
+        a = 2 * math.pi * i / segments
+        ca, sa = math.cos(a), math.sin(a)
+        rings.append([bm.verts.new(((radius + dr) * ca, (radius + dr) * sa, dz)) for dr, dz in prof])
+    n = len(prof)
+    for i in range(segments):
+        r0, r1 = rings[i], rings[(i + 1) % segments]
+        for k in range(n):
+            bm.faces.new((r0[k], r0[(k + 1) % n], r1[(k + 1) % n], r1[k]))
+    return _bm_object(name, bm, smooth=smooth)
+
+
+def box_verts(bm, center, x_axis, y_axis, z_axis, sx, sy, sz):
+    """Adds a box (8 verts, 6 faces) with half-sizes along the given orthonormal axes."""
+    cx, cy, cz = center
+    vs = []
+    for dz in (-1, 1):
+        for dy in (-1, 1):
+            for dx in (-1, 1):
+                p = Vector((cx, cy, cz)) + x_axis * (dx * sx) + y_axis * (dy * sy) + z_axis * (dz * sz)
+                vs.append(bm.verts.new(p))
+    f = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
+    for q in f:
+        bm.faces.new([vs[i] for i in q])
+
+
+def tick_ring(name, radius, count, length, width, height, major_every=0, major_scale=1.8, z=0.0, inward=True):
+    """`count` radial tick marks on a circle (XY plane); every `major_every`-th tick is longer."""
+    bm = bmesh.new()
+    for i in range(count):
+        a = 2 * math.pi * i / count
+        radial = Vector((math.cos(a), math.sin(a), 0))
+        tangent = Vector((-math.sin(a), math.cos(a), 0))
+        L = length * (major_scale if major_every and i % major_every == 0 else 1.0)
+        center = radial * (radius - L / 2 if inward else radius + L / 2) + Vector((0, 0, z))
+        box_verts(bm, center, radial, tangent, Vector((0, 0, 1)), L / 2, width / 2, height / 2)
+    return _bm_object(name, bm)
+
+
+def strut(bm, a, b, radius, sides=6):
+    """Open cylinder between points a and b (added to an existing bmesh)."""
+    a, b = Vector(a), Vector(b)
+    d = (b - a)
+    if d.length < 1e-6:
+        return
+    d.normalize()
+    helper = Vector((0, 0, 1)) if abs(d.z) < 0.9 else Vector((1, 0, 0))
+    u = d.cross(helper).normalized()
+    v = d.cross(u).normalized()
+    ra, rb = [], []
+    for k in range(sides):
+        ang = 2 * math.pi * k / sides
+        off = (u * math.cos(ang) + v * math.sin(ang)) * radius
+        ra.append(bm.verts.new(a + off))
+        rb.append(bm.verts.new(b + off))
+    for k in range(sides):
+        bm.faces.new((ra[k], ra[(k + 1) % sides], rb[(k + 1) % sides], rb[k]))
+
+
+def bm_icosphere(bm, center, radius, subdivisions=1):
+    """Adds a small icosphere to `bm` (used for lattice joints and constellation dots)."""
+    tmp = bmesh.new()
+    bmesh.ops.create_icosphere(tmp, subdivisions=subdivisions, radius=radius)
+    bmesh.ops.translate(tmp, verts=tmp.verts, vec=Vector(center))
+    me = bpy.data.meshes.new("_tmp_ico")
+    tmp.to_mesh(me)
+    tmp.free()
+    bm.from_mesh(me)
+    bpy.data.meshes.remove(me)
+
+
+def prism_from_outline(name, outline, depth, bevel=0.0, both_sides=True, smooth=False, holes=()):
+    """Extrudes a closed 2-D outline (list of (x, y)) along Z by `depth` (centred). Optional pointed faces:
+    `bevel` > 0 raises the centre of the top/bottom caps into a shallow pyramid for a faceted gem look."""
+    bm = bmesh.new()
+    h = depth / 2
+    top = [bm.verts.new((x, y, h)) for x, y in outline]
+    bot = [bm.verts.new((x, y, -h)) for x, y in outline]
+    n = len(outline)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((bot[i], bot[j], top[j], top[i]))
+    if bevel > 0:
+        ct = bm.verts.new((0, 0, h + bevel))
+        cb = bm.verts.new((0, 0, -h - bevel))
+        for i in range(n):
+            j = (i + 1) % n
+            bm.faces.new((top[i], top[j], ct))
+            bm.faces.new((bot[j], bot[i], cb))
+    else:
+        bm.faces.new(top)
+        bm.faces.new(list(reversed(bot)))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return _bm_object(name, bm, smooth=smooth)
+
+
+def frame_from_outlines(name, outer, inner, depth, smooth=False):
+    """Extruded ring between two closed outlines with the same vertex count (frames, nuts, washers)."""
+    bm = bmesh.new()
+    h = depth / 2
+    ot = [bm.verts.new((x, y, h)) for x, y in outer]
+    ob = [bm.verts.new((x, y, -h)) for x, y in outer]
+    it = [bm.verts.new((x, y, h)) for x, y in inner]
+    ib = [bm.verts.new((x, y, -h)) for x, y in inner]
+    n = len(outer)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((ob[i], ob[j], ot[j], ot[i]))      # outer wall
+        bm.faces.new((ib[j], ib[i], it[i], it[j]))      # inner wall
+        bm.faces.new((ot[i], ot[j], it[j], it[i]))      # top
+        bm.faces.new((ob[j], ob[i], ib[i], ib[j]))      # bottom
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return _bm_object(name, bm, smooth=smooth)
+
+
+def rounded_rect_outline(w, h, r, seg=6):
+    """Closed outline of a rounded rectangle centred at the origin (counter-clockwise)."""
+    pts = []
+    r = min(r, w / 2, h / 2)
+    for cx, cy, a0 in ((w / 2 - r, h / 2 - r, 0), (-w / 2 + r, h / 2 - r, 90), (-w / 2 + r, -h / 2 + r, 180), (w / 2 - r, -h / 2 + r, 270)):
+        for k in range(seg + 1):
+            a = math.radians(a0 + 90 * k / seg)
+            pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    return pts
+
+
+def star_outline(points, r_outer, r_inner, rotation=90.0):
+    out = []
+    for i in range(points * 2):
+        r = r_outer if i % 2 == 0 else r_inner
+        a = math.radians(rotation + 180.0 * i / points)
+        out.append((r * math.cos(a), r * math.sin(a)))
+    return out
+
+
+def circle_outline(r, n, rotation=0.0):
+    return [(r * math.cos(math.radians(rotation + 360.0 * i / n)), r * math.sin(math.radians(rotation + 360.0 * i / n))) for i in range(n)]
+
+
+def gear_outline(teeth, r_outer, r_inner, tooth_frac=0.45):
+    """Gear silhouette: `teeth` trapezoid teeth between r_inner and r_outer."""
+    pts = []
+    for i in range(teeth):
+        a0 = 2 * math.pi * i / teeth
+        step = 2 * math.pi / teeth
+        half = step * tooth_frac / 2
+        for a, r in ((a0 - step / 2 + 0.02, r_inner), (a0 - half, r_inner), (a0 - half * 0.7, r_outer), (a0 + half * 0.7, r_outer), (a0 + half, r_inner)):
+            pts.append((r * math.cos(a), r * math.sin(a)))
+    return pts
+
+
+def merge(objs, name):
+    """Joins objects into the first one (materials preserved per face)."""
+    objs = [o for o in objs if o is not None]
+    if len(objs) == 1:
+        objs[0].name = name
+        objs[0].data.name = name
+        return objs[0]
+    return join(objs, name)
+
+
 # ----------------------------------------------------------------------------- stats / export
 def tri_count(objs) -> int:
     dg = bpy.context.evaluated_depsgraph_get()
@@ -428,6 +617,28 @@ def verify_usdz(filepath: str) -> dict:
     except Exception as e:  # pragma: no cover - diagnostics only
         info["pxr_error"] = repr(e)
     return info
+
+
+def check_arkit(filepath: str):
+    """`usdchecker --arkit` equivalent via pxr's ComplianceChecker when this USD build ships it.
+    Returns (passed, messages) or (None, reason) when the checker is unavailable."""
+    try:
+        from pxr import UsdUtils
+        checker_cls = getattr(UsdUtils, "ComplianceChecker", None)
+        if checker_cls is None:
+            return None, "ComplianceChecker not available in this USD build"
+        c = checker_cls(arkit=True, skipARKitRootLayerCheck=False, rootPackageOnly=False, skipVariants=False, verbose=False)
+        # Sdr shader definitions are missing from some pip builds; that generic rule is not ARKit-specific.
+        try:
+            c.CheckCompliance(filepath)
+        except Exception:
+            c = checker_cls(arkit=True, skipARKitRootLayerCheck=False, rootPackageOnly=False, skipVariants=False, verbose=False)
+            c._rules = [r for r in c._rules if type(r).__name__ != "ShaderPropertyTypeConformanceChecker"]
+            c.CheckCompliance(filepath)
+        problems = list(c.GetErrors()) + list(c.GetFailedChecks())
+        return (len(problems) == 0), problems
+    except Exception as e:  # pragma: no cover
+        return None, repr(e)
 
 
 # ----------------------------------------------------------------------------- PNG writer
@@ -619,3 +830,165 @@ def render_to(scene, filepath: str, width: int, height: int):
     bpy.ops.render.render(write_still=True)
     assert os.path.exists(filepath) and os.path.getsize(filepath) > 0, f"render failed: {filepath}"
     return os.path.getsize(filepath)
+
+
+# ----------------------------------------------------------------------------- shader fields
+class Field:
+    """Tiny expression builder over Cycles shader nodes (material *or* world node trees).
+
+    Scalars are output sockets or Python floats; vectors/colours are sockets or 3-tuples. It keeps procedural
+    textures readable as formulas — `F.gauss(F.sub(r, 0.4), 0.028)` instead of a dozen hand-wired Math nodes —
+    while everything still renders in Cycles (CPU here, Metal on a Mac) exactly as a hand-built node tree would.
+    """
+
+    def __init__(self, nt):
+        self.nt = nt
+
+    # -- plumbing
+    def _set(self, sock, v):
+        if isinstance(v, (int, float)):
+            sock.default_value = float(v)
+        elif isinstance(v, tuple):
+            sock.default_value = v if len(sock.default_value) == len(v) else (*v, 1.0)[:len(sock.default_value)]
+        else:
+            self.nt.links.new(v, sock)
+
+    def _op(self, op, a, b=None):
+        n = self.nt.nodes.new("ShaderNodeMath")
+        n.operation = op
+        self._set(n.inputs[0], a)
+        if b is not None:
+            self._set(n.inputs[1], b)
+        return n.outputs[0]
+
+    # -- scalar maths
+    def add(self, a, b): return self._op("ADD", a, b)
+    def sub(self, a, b): return self._op("SUBTRACT", a, b)
+    def mul(self, a, b): return self._op("MULTIPLY", a, b)
+    def div(self, a, b): return self._op("DIVIDE", a, b)
+    def min(self, a, b): return self._op("MINIMUM", a, b)
+    def max(self, a, b): return self._op("MAXIMUM", a, b)
+    def gt(self, a, b): return self._op("GREATER_THAN", a, b)
+    def lt(self, a, b): return self._op("LESS_THAN", a, b)
+    def floor(self, a): return self._op("FLOOR", a)
+    def fract(self, a): return self._op("FRACT", a)
+    def abs(self, a): return self._op("ABSOLUTE", a)
+    def sqrt(self, a): return self._op("SQRT", a)
+    def exp(self, a): return self._op("EXPONENT", a)
+    def pow(self, a, b): return self._op("POWER", a, b)
+    def sq(self, a): return self.mul(a, a)
+    def clamp01(self, a): return self.min(self.max(a, 0.0), 1.0)
+
+    def gauss(self, x, sigma):
+        """exp(−(x/σ)²)"""
+        return self.exp(self.mul(self.sq(self.div(x, sigma)), -1.0))
+
+    def tail(self, x, scale):
+        """exp(−|x|/s)"""
+        return self.exp(self.mul(self.div(self.abs(x), scale), -1.0))
+
+    def length(self, x, y):
+        return self.sqrt(self.add(self.sq(x), self.sq(y)))
+
+    def smoothstep(self, x, e0, e1):
+        """0 below e0, 1 above e1, Hermite in between."""
+        t = self.clamp01(self.div(self.sub(x, e0), e1 - e0))
+        return self.mul(self.sq(t), self.sub(3.0, self.mul(t, 2.0)))
+
+    def smooth_edge(self, d, inner, outer):
+        """1 below `inner`, 0 beyond `outer` (a soft window)."""
+        return self.sub(1.0, self.smoothstep(d, inner, outer))
+
+    def lerp(self, a, b, t):
+        return self.add(a, self.mul(self.sub(b, a), t))
+
+    def rounded_rect_sdf(self, x, y, hw, hh, r):
+        """Signed distance to a rounded rectangle (half extents hw × hh, corner radius r)."""
+        qx = self.add(self.sub(self.abs(x), hw), r)
+        qy = self.add(self.sub(self.abs(y), hh), r)
+        outside = self.length(self.max(qx, 0.0), self.max(qy, 0.0))
+        inside = self.min(self.max(qx, qy), 0.0)
+        return self.sub(self.add(outside, inside), r)
+
+    # -- vectors / colours
+    def _vop(self, op, a, b=None):
+        n = self.nt.nodes.new("ShaderNodeVectorMath")
+        n.operation = op
+        self._set(n.inputs[0], a)
+        if b is not None:
+            self._set(n.inputs[1], b)
+        return n
+
+    def vadd(self, a, b): return self._vop("ADD", a, b).outputs["Vector"]
+    def vmul(self, a, b): return self._vop("MULTIPLY", a, b).outputs["Vector"]
+    def normalize(self, v): return self._vop("NORMALIZE", v).outputs["Vector"]
+    def dot(self, a, b): return self._vop("DOT_PRODUCT", a, b).outputs["Value"]
+
+    def vscale(self, v, s):
+        n = self._vop("SCALE", v)
+        self._set(n.inputs["Scale"], s)
+        return n.outputs["Vector"]
+
+    @staticmethod
+    def rgb(hex_str):
+        """sRGB hex → linear (r, g, b) tuple for colour constants."""
+        return hex_to_linear(hex_str)[:3]
+
+    def ramp(self, fac, stops, interpolation="LINEAR"):
+        """ColorRamp from [(position, hex), …] → colour socket."""
+        n = self.nt.nodes.new("ShaderNodeValToRGB")
+        cr = n.color_ramp
+        cr.interpolation = interpolation
+        stops = sorted(stops)
+        cr.elements[0].position, cr.elements[0].color = stops[0][0], hex_to_linear(stops[0][1])
+        cr.elements[1].position, cr.elements[1].color = stops[-1][0], hex_to_linear(stops[-1][1])
+        for pos, hx in stops[1:-1]:
+            e = cr.elements.new(pos)
+            e.color = hex_to_linear(hx)
+        self._set(n.inputs["Fac"], fac)
+        return n.outputs["Color"]
+
+    def combine(self, x, y, z=0.0):
+        n = self.nt.nodes.new("ShaderNodeCombineXYZ")
+        for i, v in enumerate((x, y, z)):
+            self._set(n.inputs[i], v)
+        return n.outputs["Vector"]
+
+    def between(self, x, lo, hi):
+        """1 where lo < x < hi (hard edges; the renderer's pixel filter anti-aliases)."""
+        return self.mul(self.gt(x, lo), self.lt(x, hi))
+
+    def separate(self, v):
+        n = self.nt.nodes.new("ShaderNodeSeparateXYZ")
+        self._set(n.inputs[0], v)
+        return n.outputs["X"], n.outputs["Y"], n.outputs["Z"]
+
+    # -- textures
+    def noise(self, vec, scale, detail=6.0, roughness=0.55, lacunarity=2.0, distortion=0.0, kind="FBM"):
+        n = self.nt.nodes.new("ShaderNodeTexNoise")
+        try:
+            n.noise_type = kind
+        except Exception:
+            pass
+        self._set(n.inputs["Vector"], vec)
+        for key, val in (("Scale", scale), ("Detail", detail), ("Roughness", roughness), ("Lacunarity", lacunarity), ("Distortion", distortion)):
+            if key in n.inputs:
+                n.inputs[key].default_value = val
+        return n.outputs["Fac"]
+
+    def white_noise(self, vec):
+        """Deterministic hash of a 3-D vector → 0…1 (per-line / per-token randomness)."""
+        n = self.nt.nodes.new("ShaderNodeTexWhiteNoise")
+        n.noise_dimensions = "3D"
+        self._set(n.inputs["Vector"], vec)
+        return n.outputs["Value"]
+
+    def voronoi(self, vec, scale, randomness=1.0):
+        """F1 Euclidean cells; returns (distance in cell units, per-cell random colour)."""
+        n = self.nt.nodes.new("ShaderNodeTexVoronoi")
+        n.feature = "F1"
+        n.distance = "EUCLIDEAN"
+        self._set(n.inputs["Vector"], vec)
+        n.inputs["Scale"].default_value = scale
+        n.inputs["Randomness"].default_value = randomness
+        return n.outputs["Distance"], n.outputs["Color"]

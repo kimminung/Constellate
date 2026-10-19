@@ -102,6 +102,7 @@ private struct VisionDashboard: View {
                     immersiveButton
                     hostStatus
                     GranularityPicker()
+                    constellationControls
                     TimeDialView()
                     ThemePickerView()
                     ParticipantsView()
@@ -116,6 +117,17 @@ private struct VisionDashboard: View {
                 .padding(.trailing, 24)
         }
         .frame(minWidth: 900, minHeight: 620)
+    }
+
+    /// Layout style (shape of the sky) + relation mode and legend.
+    private var constellationControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Constellation · 별자리", systemImage: model.layoutStyle.symbol).font(.headline)
+            LayoutStylePicker()
+            RelationLegendView()
+        }
+        .padding(14)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
     }
 
     /// Compact host HUD mirrored from the iPad/Mac capsule.
@@ -239,6 +251,15 @@ private struct SplitDashboard: View {
             Button { model.showProjectImporter = true } label: { Label("Open Project", systemImage: "folder") }
                 .help("Open a project folder (⌘O)")
             GranularityPicker(compact: true)
+            Menu {
+                LayoutStylePicker(compact: true)
+                Divider()
+                Text(model.layoutStyle.axes)
+            } label: {
+                Label("Layout", systemImage: model.layoutStyle.symbol)
+            }
+            .help("Constellation layout · 배치 (\(model.layoutStyle.label))")
+            RelationToolbarControl()
             Menu {
                 Picker("Theme", selection: themeSelection) {
                     ForEach(ConstellateTheme.presets) { preset in

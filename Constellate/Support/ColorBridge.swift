@@ -12,8 +12,11 @@ typealias PlatformColor = NSColor
 #endif
 
 /// Bridges the Kit's platform-neutral `RGBA` to the colour types each framework wants.
+/// The pure conversions are `nonisolated` (the app target defaults to the main actor), so off-main code such as
+/// `TextureFactory` and `SyntaxHighlighter` can use them; `platformColor` builds a UIKit / AppKit object and stays
+/// on the main actor.
 extension RGBA {
-    var cgColor: CGColor {
+    nonisolated var cgColor: CGColor {
         CGColor(srgbRed: CGFloat(r), green: CGFloat(g), blue: CGFloat(b), alpha: CGFloat(a))
     }
 
@@ -21,29 +24,29 @@ extension RGBA {
         PlatformColor(red: CGFloat(r), green: CGFloat(g), blue: CGFloat(b), alpha: CGFloat(a))
     }
 
-    var swiftUIColor: Color {
+    nonisolated var swiftUIColor: Color {
         Color(.sRGB, red: r, green: g, blue: b, opacity: a)
     }
 
     /// Linear blend; `t == 1` returns `other`.
-    func mixed(with other: RGBA, _ t: Double) -> RGBA {
+    nonisolated func mixed(with other: RGBA, _ t: Double) -> RGBA {
         let k = min(max(t, 0), 1)
         return RGBA(r: r + (other.r - r) * k, g: g + (other.g - g) * k, b: b + (other.b - b) * k, a: a + (other.a - a) * k)
     }
 
     /// Shifts the hue by `degrees`, keeping saturation and lightness.
-    func shiftedHue(by degrees: Double) -> RGBA {
+    nonisolated func shiftedHue(by degrees: Double) -> RGBA {
         let c = hsl
         return RGBA(hue: c.hue + degrees, saturation: c.saturation, lightness: c.lightness, alpha: a)
     }
 
-    func lightened(_ amount: Double) -> RGBA { mixed(with: RGBA(hex: 0xFFFFFF), amount) }
+    nonisolated func lightened(_ amount: Double) -> RGBA { mixed(with: RGBA(hex: 0xFFFFFF), amount) }
 
-    static let white = RGBA(hex: 0xFFFFFF)
-    static let black = RGBA(hex: 0x000000)
+    nonisolated static let white = RGBA(hex: 0xFFFFFF)
+    nonisolated static let black = RGBA(hex: 0x000000)
 
     /// Euclidean RGB distance (0…√3).
-    func distance(to other: RGBA) -> Double {
+    nonisolated func distance(to other: RGBA) -> Double {
         let dr = r - other.r, dg = g - other.g, db = b - other.b
         return (dr * dr + dg * dg + db * db).squareRoot()
     }

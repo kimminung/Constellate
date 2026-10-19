@@ -6,13 +6,13 @@
 
 **Walk your codebase as a constellation — together, with an on-device AI host.**
 
-Constellate turns a whole project into a 4-D "code constellation" inside an immersive space (visionOS) or a RealityKit viewport (iPadOS / macOS). Every file and type is placed by rule — tree depth becomes shell radius, siblings share angular sectors, architecture layer becomes height, and recency becomes a fourth axis you scrub with a time dial. The host's Apple Intelligence model lives in the space as a Siri-like orb: tap a cluster of code and the orb docks into it to answer with that code as context; pull it out and it follows you again. Say *"Constellate, find the views that use @State"* and the matching card flies to your hands while a beacon rises for everyone in the SharePlay session. No code ever leaves the device.
+Constellate turns a whole project into a multi-dimensional "code constellation" inside an immersive space (visionOS) or a RealityKit viewport (iPadOS / macOS). Every file and type is placed by rule — in the default *celestial* layout tree depth becomes distance, subtrees become azimuth sectors, the architecture layer becomes an elevation angle (UI overhead, data at the horizon, tests below), and recency becomes a fourth axis you scrub with a time dial. Relations are drawn by *meaning* — a screen presenting another, a view observing a model, a factory creating a type — each in its own colour, line style and 3-D lane, and every card wears a star whose shape, colour, size and glow say its role, layer, coupling and recency. The host's Apple Intelligence model lives in the space as a Siri-like orb: tap a cluster of code and the orb docks into it to answer with that code as context; pull it out and it follows you again. Say *"Constellate, find the views that use @State"* and the matching card flies to your hands while a beacon rises for everyone in the SharePlay session. No code ever leaves the device.
 
 <p align="center">
   <img src="https://img.shields.io/badge/platforms-visionOS%2027%20%7C%20iPadOS%2027%20%7C%20macOS%2027-black?logo=apple" alt="platforms"/>
   <img src="https://img.shields.io/badge/Xcode-27-blue?logo=xcode" alt="Xcode 27"/>
   <img src="https://img.shields.io/badge/on--device%20AI-FoundationModels-7F7CFF" alt="FoundationModels"/>
-  <img src="https://img.shields.io/badge/Kit%20tests-54%20passing-brightgreen" alt="54 tests"/>
+  <img src="https://img.shields.io/badge/Kit%20tests-99%20passing-brightgreen" alt="99 tests"/>
   <img src="https://img.shields.io/badge/status-feature%20complete%20on%203%20platforms%20%C2%B7%20device%20validation%20pending-lightgrey" alt="status"/>
   <img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="Apache-2.0"/>
 </p>
@@ -22,7 +22,9 @@ Constellate turns a whole project into a 4-D "code constellation" inside an imme
 ## Features
 
 - **Project ingest, on device** — point at a folder (≤ 4000 files); `ProjectIngestor` builds a `CodeGraph` (module → folder → file → type → member) with imports / inherits / references / calls edges. Swift symbols are extracted with a dependency-free scanner; `CodeGraph+Analysis` gives stats, hubs, entry points and busiest files.
-- **4-D constellation layout** — hierarchical radial shells (1.6 m + 1.25 m per depth), weighted angular sectors that preserve the tree, architecture-layer height bands, card radius `0.08 + √lines/90` m, and a continuous **time dial** (−1…1) that bulges recently changed code outward. Deterministic; same project, same sky.
+- **Six constellation shapes** — `celestial` (default: spherical shells around your eyes — depth → distance, subtree → azimuth, layer → elevation), the v1 `shells` disc, and ports of CoulsonPortfolioWeb's `sphere` (Fibonacci dome with folder patches), `treeRadial`, `wall` (a curved wall in front of you) and `spiral`. Weighted sectors preserve the tree, card radius `0.08 + √lines/90` m, and a continuous **time dial** (−1…1) pushes recent code outward (spherically for the dome styles). Deterministic; same project, same sky. Switch from the toolbar, the visionOS dashboard or ⌃⌘1…6; the host's choice syncs over SharePlay.
+- **Relations by meaning** — `RelationClassifier` (a port of the portfolio's `relations.js`) labels every reference: **presents** (sheet / NavigationLink / WindowGroup), **binds** (@State / @Environment / @Bindable — drawn from the source to the view), **composes**, **creates**, **conforms**, **extends**, **delegates**, **notifies**, **calls**, **imports**, **uses**. Each kind has a fixed colour, dashed or solid line, flow particles and arrowheads where data moves, and its own *lane* — a rotation of the arc around the chord — so different relations between the same two cards separate in 3-D. Off / focus / all (⌘L) and a legend that hides kinds; selecting a card dims everything it isn't related to. Relations are searchable too — *"views that present SettingsView"*, *"observed by NotesListView"*, *"SettingsView를 띄우는 뷰"* — in the navigator, by voice and through the host AI's `locateCode` tool.
+- **Stars, coupling and cycles** — a glyph above each card encodes role (App, View, ViewModel, Model, Service, Test… from `inferRole`), layer colour, fan-in size and recency glow. `GraphInsights` lifts dependencies to files: fan-in / fan-out, instability, transitive impact and Tarjan cycles — select a file on a cycle and the whole loop lights up red. The inspector groups relations as "Presents / Observed by / Created by …", and the host AI receives the same digest as context.
 - **Orbs for any unit of code** — group by folder / file / type / feature (`ClusterGranularity`); each cluster is a glass orb at its centroid that unfolds into code cards.
 - **Host AI orb (dock / undock)** — the host's `FoundationModels` session is embodied as a Siri-like orb with five tools: `LocateCode`, `ExplainNode`, `SummarizeCluster`, `ReviewNode`, `PlanTour`, answering with `@Generable` `LocateAnswer` / `TourAnswer`; free-form chat streams token by token (`HostAI.streamChat`). Tap a cluster to dock the orb into it; drag it out to free it. `HeuristicHost` keeps every feature working when the model is unavailable.
 - **Voice summon + spoken replies** — "Constellate" / "콘스텔" wake word via `SpeechAnalyzer`; `VoiceCommandRouter` picks the intent, the found card flies to you, a 3 m beacon rises at its origin, and the beacon is synchronized to all participants. `HostVoice` reads replies aloud (ko-KR / en-US auto, toggle persisted).
@@ -40,7 +42,24 @@ Constellate turns a whole project into a 4-D "code constellation" inside an imme
 | Meeting | SharePlay with spatial Personas | SharePlay | SharePlay |
 | Windows | Dashboard + Code Inspector | 3-column split | 3-column split + menu bar |
 
-One multiplatform app target + the pure-Swift `ConstellateKit` package (Foundation + simd only, 54 tests in 9 suites).
+One multiplatform app target + the pure-Swift `ConstellateKit` package (Foundation + simd only, 99 tests).
+
+## The constellation language
+
+Rendered by Blender from the positions, arcs and legends ConstellateKit computes for the Orbit Notes sample (`Blender/data/*.json` → `render_graph.py`):
+
+<p align="center"><img src="Blender/renders/layout_gallery.png" width="100%" alt="The six layout styles: celestial, shells, sphere, tree radial, wall, spiral"/></p>
+
+<table>
+  <tr>
+    <td align="center"><img src="Blender/renders/layout_celestial_eye.png" width="480" alt="Celestial layout from the viewer's spot"/><br/><sub>Celestial · from where you stand</sub></td>
+    <td align="center"><img src="Blender/renders/relation_legend.png" width="480" alt="Relation legend"/><br/><sub>Relations: colour = kind · dash = type system · arrow + particles = flow</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="Blender/renders/node_stars.png" width="480" alt="Node star glyphs"/><br/><sub>Stars: shape = role · colour = layer · size = fan-in · glow = recency · ring = cycle</sub></td>
+    <td align="center"><img src="Blender/renders/theme_dark.png" width="480" alt="Blender render — Dark theme"/><br/><sub>Meeting assets v2 under the new sky and astrolabe floor</sub></td>
+  </tr>
+</table>
 
 ## Screenshots
 
@@ -77,8 +96,8 @@ One multiplatform app target + the pure-Swift `ConstellateKit` package (Foundati
 
 ![Architecture](Docs/diagrams/architecture.svg)
 
-- **Constellate app** — `App/` (`ConstellateApp`, `AppModel`), `Views/` (Dashboard, Navigator, Inspector + CodeInspectorWindow, CodeCard, HostChat, ThemePicker, TimeDial, Participants, TourBar, VoiceButton), `Spatial/` (ConstellationSceneController, CodeNodeEntity, OrbEntity, BeaconEntity, AvatarEntity, EnvironmentEntity, EdgeRenderer, MeshFactory, TextureFactory, AssetLoader), `Platform/` (OrbitCameraRig, ConstellationViewport, ConstellationImmersiveView + HeadPoseProvider, ScrollWheelMonitor), `AI/` (HostAI, HeuristicHost), `Voice/` (SpeechListener, VoiceCommandRouter, HostVoice), `Session/` (ConstellateActivity, SessionCoordinator), `Support/` (ColorBridge, SourceProvider, SyntaxHighlighter, PinsExporter).
-- **ConstellateKit** — `CodeGraph` (+Analysis), `ProjectIngestor` / `SwiftSymbolExtractor`, `ConstellationLayoutEngine` / `ConstellationLayout`, `ClusterBuilder`, `CodeSearcher`, `TourBuilder`, `ConstellateTheme`, session models (`Participant`, `ReviewPin`, `LearningTour`, `ConstellateMessage`), `SampleGraph.orbitNotes()` (47 files, 15 folders, 50+ types).
+- **Constellate app** — `App/` (`ConstellateApp`, `AppModel`), `Views/` (Dashboard, Navigator, Inspector + CodeInspectorWindow, CodeCard, HostChat, ThemePicker, TimeDial, Participants, TourBar, VoiceButton, RelationLegend), `Spatial/` (ConstellationSceneController, CodeNodeEntity, OrbEntity, BeaconEntity, AvatarEntity, EnvironmentEntity, EdgeRenderer + FlowParticles, NodeStarFactory, FXTextures, MeshFactory, TextureFactory, AssetLoader), `Platform/` (OrbitCameraRig, ConstellationViewport, ConstellationImmersiveView + HeadPoseProvider, ScrollWheelMonitor), `AI/` (HostAI, HeuristicHost), `Voice/` (SpeechListener, VoiceCommandRouter, HostVoice), `Session/` (ConstellateActivity, SessionCoordinator), `Support/` (ColorBridge, SourceProvider, SyntaxHighlighter, PinsExporter).
+- **ConstellateKit** — `CodeGraph` (+Analysis), `RelationKind` / `CodeRole`, `GraphInsights`, `RelationDigest`, `ProjectIngestor` / `SwiftSymbolExtractor` / `RelationClassifier`, `ConstellationLayoutEngine` (six `LayoutStyle`s) / `ConstellationLayout`, `EdgeSceneBuilder` (relation tubes, flows, focus), `StarEncoder`, `ConstellationSnapshot`, `ClusterBuilder`, `CodeSearcher`, `TourBuilder`, `ConstellateTheme`, session models (`Participant`, `ReviewPin`, `LearningTour`, `ConstellateMessage`), `SampleGraph.orbitNotes()` (47 files, 15 folders, 50+ types).
 
 More diagrams: [data flow](Docs/diagrams/dataflow.svg) · [4-D layout](Docs/diagrams/layout-4d.svg) · [session topology](Docs/diagrams/session-topology.svg) · [host orb states](Docs/diagrams/orb-states.svg).
 
@@ -86,12 +105,13 @@ More diagrams: [data flow](Docs/diagrams/dataflow.svg) · [4-D layout](Docs/diag
 
 ![Data flow](Docs/diagrams/dataflow.svg)
 
-1. **Ingest** — `ProjectIngestor.ingest(rootURL:)` walks the folder on a background task, extracts Swift symbols, infers architecture layers and records modification dates → `CodeGraph`.
-2. **4-D layout** — `ConstellationLayoutEngine.layout(_:)` assigns every spatial node `position4 = (x, y, z, w)`: shell radius from depth, sector angle from subtree weight, height from layer, `w` from recency. `ConstellationLayout.position3(for:timeDial:)` projects to 3-D continuously; the scene never re-lays out when you turn the dial.
-3. **Orbs** — `ClusterBuilder` groups nodes at the chosen granularity; each `CodeCluster` becomes an orb at `layout.centroid(of:)`. The scene shows up to 2500 node entities and 400 bespoke code textures (the rest are solid layer-coloured cards).
-4. **Host AI** — on the host device, `HostAI` wraps a `LanguageModelSession` with five tools grounded in the graph (`CodeSearcher`, `TourBuilder`, `GraphStats`). Docking a cluster puts its code into the prompt context; context-window overflow starts a fresh session once, then falls back. If the model is unavailable, `HeuristicHost` answers from the same Kit calls.
-5. **Voice summon** — `SpeechListener` transcribes with `SpeechAnalyzer`, the wake word gates listening, `VoiceCommandRouter` picks the intent, and the result raises a `BeaconEntity` plus a summoned card copy.
-6. **SharePlay** — `SessionCoordinator` broadcasts `ConstellateMessage` values as JSON (highlight, summon, orbDock, hostSpeech, pointer, pin, theme, timeDial, mode, tour, followHost). Members ask the host AI through `hostSpeech(text: "ask: …")`.
+1. **Ingest** — `ProjectIngestor.ingest(rootURL:)` walks the folder on a background task, extracts Swift symbols, infers architecture layers and roles, classifies every reference into a `RelationKind` and records modification dates → `CodeGraph`; `GraphInsights` then derives file dependencies, cycles and coupling.
+2. **Layout** — `ConstellationLayoutEngine(style:).layout(_:)` assigns every spatial node `position4 = (x, y, z, w)` by the chosen style (celestial: distance from depth, azimuth from subtree weight, elevation from layer; `w` from recency). `ConstellationLayout.position3(for:timeDial:)` projects to 3-D continuously; the scene never re-lays out when you turn the dial.
+3. **Relations** — `EdgeSceneBuilder` turns relation edges into merged tube meshes per kind × emphasis (Bézier arcs in per-kind lanes, dashes, arrowheads) plus particle paths, off the main actor; the app shades them with the Blender `FX_EdgeRamp` so each edge brightens toward its target.
+4. **Orbs** — `ClusterBuilder` groups nodes at the chosen granularity; each `CodeCluster` becomes an orb at `layout.centroid(of:)`. The scene shows up to 2500 node entities and 400 bespoke code textures (the rest are solid layer-coloured cards).
+5. **Host AI** — on the host device, `HostAI` wraps a `LanguageModelSession` with five tools grounded in the graph (`CodeSearcher`, `TourBuilder`, `GraphStats`). Docking a cluster puts its code into the prompt context; context-window overflow starts a fresh session once, then falls back. If the model is unavailable, `HeuristicHost` answers from the same Kit calls.
+6. **Voice summon** — `SpeechListener` transcribes with `SpeechAnalyzer`, the wake word gates listening, `VoiceCommandRouter` picks the intent, and the result raises a `BeaconEntity` plus a summoned card copy.
+7. **SharePlay** — `SessionCoordinator` broadcasts `ConstellateMessage` values as JSON (highlight, summon, orbDock, hostSpeech, pointer, pin, theme, timeDial, mode, tour, followHost, layoutStyle, relationMode). Members ask the host AI through `hostSpeech(text: "ask: …")`.
 
 ## Getting started
 
@@ -103,33 +123,40 @@ cd Constellate
 open Constellate.xcodeproj          # pick the Constellate scheme and a visionOS / iPad / Mac destination
 
 Scripts/build.sh all                # build macOS + iPadOS simulator + visionOS simulator (exit=0 ×3)
-cd ConstellateKit && swift test     # 54 tests / 9 suites
+cd ConstellateKit && swift test     # 99 tests — AppFacingAPITests uses a plain `import`, so it fails
+                                   # if the Kit stops exposing an API the app calls (no Xcode needed)
 ```
 
 The app opens with the built-in **Orbit Notes** sample project (47 files), so you can explore a constellation before granting folder access.
 
 ## Blender asset pipeline
 
-All 3-D assets, textures, renders and the app icon are produced headlessly by Blender 5.2 from `Blender/scripts/` (no `.blend` files are kept — see `Blender/scripts/README.md`):
+All 3-D assets, effect sprites, textures, renders and the app icon are produced headlessly by Blender 5.2 from `Blender/scripts/` (no `.blend` files are kept — see `Blender/scripts/README.md`):
 
 ```sh
 BLENDER=/Applications/Blender.app/Contents/MacOS/Blender
 cd Blender/scripts
-$BLENDER --background --python build_all.py        # assets → textures → renders → icon (~15 min; sky render ~9 min)
+$BLENDER --background --python build_all.py        # assets → stars + FX → textures → renders → constellation renders → icons
 ./make_icon_set.sh                                 # mac_16…512 from mac_1024 + Docs/images/icon-256.png
-$BLENDER --background --python build_textures.py -- --fallback   # numpy sky in seconds instead of Cycles
+$BLENDER --background --python build_graph_assets.py              # NodeStars.usdz + FX_*.png only
+$BLENDER --background --python render_graph.py -- --quick         # layout gallery + legends, fast preview
+$BLENDER --background --python build_textures.py -- --fallback    # numpy sky in seconds instead of Cycles
 ```
+
+**v2 "observatory instruments"** — the meeting assets were redesigned as precise astronomical instruments (an armillary host orb, a geodesic cluster orb, a visored bust with headset, a beacon with tractor rings and a floor medallion, a jewel review pin, an astrolabe stage ring, a crystal pointer), every one under its triangle budget and passing the ARKit USD rules. The sky now has a Milky Way, dust rifts, two nebula layers and four star magnitudes (still OKLab L ≤ 0.29, chroma ≤ 0.06); the floor is an astrolabe whose rings sit exactly under the layout's depth shells.
 
 | Script | Output |
 |---|---|
 | `constellate_lib.py` | shared palette / materials / USDZ export + verification / PNG writer |
 | `build_assets.py` | `Constellate/Resources/Assets3D/{HostOrb,ClusterOrb,Avatar_Bust,Beacon,ReviewPin,Stage_Ring,Pointer_Dart}.usdz` |
-| `build_textures.py` (`--fallback`, `--derived-only`) | `Resources/Textures/{Sky_Dark,Sky_Tint,Floor_Grid}.png` |
+| `build_graph_assets.py` | `Assets3D/NodeStars.usdz` (15 star glyphs) + `Textures/FX_{Glow,Spark,Ring,Beam,EdgeRamp,CardGlow}.png` |
+| `build_textures.py` (`--fallback`, `--derived-only`, `--sky-only`, `--floor-only`) | `Resources/Textures/{Sky_Dark,Sky_Tint,Floor_Grid}.png` |
 | `render_assets.py` | `Blender/renders/*.png` (asset + theme renders) |
+| `render_graph.py` | `Blender/renders/{layout_*,layout_gallery,node_stars,relation_legend}.png` from `Blender/data/*.json` |
 | `render_icons.py` | platform app icons: iOS light/dark/tinted, macOS rounded tile, visionOS Front/Middle/Back layers, `Blender/renders/icon_sheet.png` |
-| `build_all.py` (`--skip-*`, `--skip-icons`, `--fallback-sky`) | everything above |
+| `build_all.py` (`--skip-*`, `--skip-graph`, `--skip-graph-renders`, `--skip-icons`, `--fallback-sky`) | everything above |
 
-Material slots are fixed (`Core`, `Band0…Band3`, `Shell`, `Accent`, `Glass`, `Base`) so the app swaps them for theme-driven materials at runtime; every USDZ passes `usdchecker --arkit`. Blender 5.2 ignores the Principled Alpha socket, so the exporter post-processes `inputs:opacity` with the bundled `pxr`. `Sky_Dark.png` is a Cycles render (4096×2048, 32 samples, denoise off to keep 1–2 px stars); presentation renders use AgX + bloom. The Blender MCP server was not connected in this session, so the CLI path was used — the same scripts run unchanged under MCP `execute_blender_code`. If assets are missing the app uses procedural fallbacks.
+Material slots are fixed (`Core`, `Band0…Band3`, `Shell`, `Accent`, `Glass`, `Base`) so the app swaps them for theme-driven materials at runtime; every USDZ passes the ARKit USD rules. Blender 5.2 ignores the Principled Alpha socket, so the exporter post-processes `inputs:opacity` with `pxr`. The FX sprites are emission planes whose strength is a small formula (`constellate_lib.Field`) rendered by Cycles to linear EXR and stored as white + alpha, so one texture is tinted with any colour. `Sky_Dark.png` is a Cycles render (4096×2048, 12 samples, denoise off to keep 1–2 px stars); presentation renders use AgX + bloom. The Blender MCP server was not connected in this session, so the CLI path was used — the same scripts run unchanged under MCP `execute_blender_code`. If assets are missing the app uses procedural fallbacks.
 
 ## App icons
 
@@ -155,6 +182,7 @@ From `Docs/TASKS-Constellate.md` (2026-10-19, after PR #1 and the second app rou
 - [ ] **M5** — voice: `SpeechAnalyzer` listener, wake words, intent router, beacons, summon, **TTS (`HostVoice`)** *(implemented; real-device validation pending; one `installTap` deprecation warning)*
 - [ ] **M6** — meetings: GroupActivities, roles, `ask:` relay, **follow-host camera / guide arrow**, **laser pointer gesture**, **pins with resolve/delete + Markdown export**, tours, **accent-retinted avatars** *(implemented with simulated members; pointer release is not broadcast so a remote dart stays at its last spot; graph-chunk sync missing; 2-device validation pending)*
 - [ ] **M7** — performance budget (90 fps visionOS, 1500 edges, 2500 nodes / 400 textures), accessibility, macOS screenshot, device validation
+- [ ] **M8** — constellation language v2: relation kinds + classifier, six layout styles, node stars, dependency insights, inspector digests, Blender v2 assets / FX / sky / floor, constellation renders *(Kit: done, 99 tests; app builds and runs on macOS with zero warnings — iPadOS / visionOS simulator builds pending)*
 
 ## Credits
 
@@ -180,10 +208,11 @@ Apache License 2.0 — see [LICENSE](LICENSE). Copyright 2026 Minung Kim (Coulso
 
 ### 현재 상태 (2026-10-19, PR #1 머지 + 2차 라운드)
 
-- `ConstellateKit` 구현·테스트 완료 — **54 테스트 / 9 스위트** 통과 (`cd ConstellateKit && swift test`)
+- `ConstellateKit` 구현·테스트 완료 — **99 테스트** 통과 (`cd ConstellateKit && swift test`)
 - 앱이 **macOS · iPadOS · visionOS** 3 플랫폼에서 빌드 (`Scripts/build.sh all` → exit=0 ×3)
 - 2차 라운드 반영: 채팅 응답 스트리밍(`HostAI.streamChat`), TTS(`HostVoice`, 음성 읽기 토글), 레이저 포인터 제스처(iPad/Mac 길게 누르기+드래그, visionOS 핀치 유지), USDZ `Accent` 재틴트, 리뷰 핀 resolve/삭제 + Markdown 내보내기(`PinsExporter`), follow-host 카메라 비행(iPad/Mac)·가이드 화살표(visionOS)
 - Blender 5.2 헤드리스 파이프라인으로 USDZ 7종(`usdchecker --arkit` 통과)·텍스처 3종·렌더 10종·앱 아이콘 생성
+- **3차 라운드 — 별자리 언어 v2**: 관계 11종(포트폴리오 `relations.js` 포팅: 화면 전환·상태 흐름·생성·뷰 포함·채택·확장·델리게이트·알림·import·참조·호출) + 종류별 색·점선·흐름 파티클·3D lane, 레이아웃 6종(기본 **천구**: 깊이 = 거리, 서브트리 = 방위, 레이어 = 고도각 / 셸 / 구 / 트리 방사형 / 벽 / 나선), 카드마다 **별**(모양 = 역할, 색 = 레이어, 크기 = fan-in, 발광 = 최근성, 헤일로 = 순환), 의존 분석(fan-in/out·불안정도·영향 범위·순환), 인스펙터 관계 그룹, 포커스 디밍, Blender v2 "관측 기기" 에셋 7종 + 별 글리프 15종 + FX 스프라이트 6종 + 은하수 하늘 + 아스트롤라베 바닥 — Kit은 테스트 완료, 앱은 macOS 빌드·실행 확인(경고 0) — **iPadOS·visionOS 빌드 확인 대기**
 - 남은 것: 도구 응답(explain/review/summarize) 스트리밍, 포인터 해제 메시지(원격 다트 잔류), 그래프 청크 동기화, `installTap` 경고, **실기기 검증**(Vision Pro·2기기 SharePlay·Apple Intelligence), macOS 스크린샷(화면 기록 권한 대기)
 
 ### 핵심 기능
@@ -191,7 +220,9 @@ Apache License 2.0 — see [LICENSE](LICENSE). Copyright 2026 Minung Kim (Coulso
 | 기능 | 설명 |
 |---|---|
 | 온디바이스 인제스트 | 폴더(≤ 4000 파일) → `CodeGraph`(module→folder→file→type→member + imports/inherits/references/calls 엣지). SwiftSyntax 없는 경량 심볼 추출, `CodeGraph+Analysis` 통계·허브·엔트리 포인트 |
-| 4D 별자리 레이아웃 | 계층 방사형 셸(1.6 m + 1.25 m/깊이) · 가중 섹터로 트리 보존 · 레이어 밴드 높이 · 카드 반지름 `0.08 + √lines/90` · 연속 **타임 다이얼**(−1…1) |
+| 별자리 모양 6종 | **천구**(기본) · 셸 · 구 · 트리 방사형 · 벽 · 나선 — 가중 섹터로 트리 보존, 카드 반지름 `0.08 + √lines/90`, 연속 **타임 다이얼**(−1…1), SharePlay 동기화 |
+| 관계의 의미 | 화면 전환 · 상태 흐름 · 생성 · 뷰 포함 · 채택 · 확장 · 델리게이트 · 알림 · 호출 · import · 참조 — 고정 색 · 점선/실선 · 흐름 파티클 · 종류별 3D lane, 끔/선택/전체(⌘L), 범례에서 숨김. 검색·음성·호스트 AI에서 "SettingsView를 띄우는 뷰", "presented by X", "observed by X"로 찾기 |
+| 별 · 결합도 · 순환 | 카드 위 별(역할 · 레이어 · fan-in · 최근성), `GraphInsights`(fan-in/out · 불안정도 · 영향 범위 · Tarjan 순환), 인스펙터 "띄우는 화면 / 관찰하는 뷰 …" 그룹, 호스트 AI 문맥 |
 | 임의 단위 오브 | folder / file / type / feature 그래뉼래리티. 클러스터마다 유리 오브, 탭하면 카드가 펼쳐짐 |
 | 호스트 AI 오브 (dock/undock) | `FoundationModels` 도구 5종 `LocateCode` `ExplainNode` `SummarizeCluster` `ReviewNode` `PlanTour`, `@Generable` `LocateAnswer`/`TourAnswer`. 모델 불가 시 `HeuristicHost` 폴백으로 기능 유지 |
 | 음성 출두 | `SpeechAnalyzer` 웨이크워드 "콘스텔"/"Constellate" → `VoiceCommandRouter` → 카드 소환 + 3 m 비콘, 참가자 전원 동기화 |
@@ -209,7 +240,7 @@ Xcode 27에서 `Constellate.xcodeproj`를 열고 Constellate 스킴을 visionOS 
 
 ### Blender 에셋
 
-`Blender/scripts/build_all.py`를 Blender 5.2 헤드리스로 실행하면 `Constellate/Resources/Assets3D/*.usdz`, `Resources/Textures/*.png`, `Blender/renders/*.png`, 앱 아이콘이 생성됩니다(`constellate_lib.py`, `build_assets.py`, `build_textures.py`, `render_assets.py`, `render_icons.py`(플랫폼별 앱 아이콘: iOS 라이트/다크/틴트, macOS 타일, visionOS 3레이어), `make_icon_set.sh`). 머티리얼 슬롯(`Core` `Band0…Band3` `Shell` `Accent` `Glass` `Base`)은 고정되어 앱이 런타임에 교체합니다. 이번 세션에는 Blender MCP가 연결되지 않아 CLI 경로를 썼고, 같은 스크립트를 MCP `execute_blender_code`로도 실행할 수 있습니다. 자세한 내용은 `Docs/PRD-Design-Constellate.md` §9–10과 `Blender/scripts/README.md`.
+`Blender/scripts/build_all.py`를 Blender 5.2 헤드리스로 실행하면 `Constellate/Resources/Assets3D/*.usdz`, `Resources/Textures/*.png`, `Blender/renders/*.png`, 앱 아이콘이 생성됩니다(`constellate_lib.py`, `build_assets.py`(v2 관측 기기 7종), `build_graph_assets.py`(별 글리프 `NodeStars.usdz` + FX 스프라이트 6종), `build_textures.py`(은하수 하늘 · 아스트롤라베 바닥), `render_assets.py`, `render_graph.py`(Kit이 계산한 실제 배치로 레이아웃 갤러리 · 범례 렌더), `render_icons.py`(플랫폼별 앱 아이콘: iOS 라이트/다크/틴트, macOS 타일, visionOS 3레이어), `make_icon_set.sh`). 머티리얼 슬롯(`Core` `Band0…Band3` `Shell` `Accent` `Glass` `Base`)은 고정되어 앱이 런타임에 교체합니다. 이번 세션에는 Blender MCP가 연결되지 않아 CLI 경로를 썼고, 같은 스크립트를 MCP `execute_blender_code`로도 실행할 수 있습니다. 자세한 내용은 `Docs/PRD-Design-Constellate.md` §9–10과 `Blender/scripts/README.md`.
 
 ### 문서
 

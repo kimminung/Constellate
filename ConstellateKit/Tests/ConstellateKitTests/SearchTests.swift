@@ -132,3 +132,58 @@ import Testing
         #expect(CodeSearcher.initials(of: "APIError") == "ae")
     }
 }
+
+/// Relation phrases ("presents X", "observed by X", "X를 띄우는") search the classified `RelationKind`s.
+@Suite struct RelationSearchTests {
+    let graph = SampleGraph.orbitNotes()
+    let searcher = CodeSearcher()
+
+    /// First classified edge of `kind` whose two ends live in different files, as (source type/file, target name).
+    private func sample(_ kind: RelationKind) -> (source: NodeID, sourceFile: NodeID, target: CodeNode)? {
+        for e in graph.edges where e.relation == kind {
+            guard let target = graph[e.to], let fromFile = graph.file(containing: e.from), let toFile = graph.file(containing: e.to),
+                  fromFile.id != toFile.id, target.kind == .type else { continue }
+            return (e.from, fromFile.id, target)
+        }
+        return nil
+    }
+
+    @Test func presentsFindsThePresenter() throws {
+        let s = try #require(sample(.presents))
+        let hits = searcher.search("presents \(s.target.name)", in: graph, limit: 20)
+        let ids = Set(hits.map(\.nodeID))
+        #expect(ids.contains(s.sourceFile) || ids.contains(s.source))
+        #expect(hits.allSatisfy { $0.reason.contains("Presents \(s.target.name)") })
+        #expect(searcher.explainQuery("presents \(s.target.name)").contains("Presents \(s.target.name)"))
+    }
+
+    @Test func passiveAndKoreanForms() throws {
+        let s = try #require(sample(.binds))
+        // Incoming: the observed type's file is "observed by" the observer.
+        let observerName = try #require(graph[s.source]?.name)
+        let passive = searcher.search("observed by \(observerName)", in: graph, limit: 30)
+        #expect(!passive.isEmpty)
+        #expect(passive.allSatisfy { $0.reason.contains("Observed by") })
+        // Korean active form, object before the verb (particle stripped).
+        let korean = searcher.search("\(s.target.name)를 관찰하는", in: graph, limit: 30)
+        let ids = Set(korean.map(\.nodeID))
+        #expect(ids.contains(s.sourceFile) || ids.contains(s.source))
+    }
+
+    @Test func relationVerbsDoNotSwallowKindWords() {
+        // "creates views" has no identifier object: no constraint, "views" stays the kind filter.
+        let explained = searcher.explainQuery("file that creates views")
+        #expect(!explained.contains("Creates"))
+    }
+
+    @Test func unknownObjectsFallBackToFreeText() {
+        // No node is called "editor", so "creates editor" must not become an impossible relation constraint —
+        // "editor" goes back to free text and still finds NoteEditorView & co.
+        #expect(!graph.nodes.contains { $0.name.lowercased() == "editor" })
+        let explained = searcher.explainQuery("creates editor", in: graph)
+        #expect(!explained.contains("Creates"))
+        #expect(explained.contains("editor"))
+        let hits = searcher.search("creates editor", in: graph)
+        #expect(hits.contains { graph[$0.nodeID]?.name == "NoteEditorView" })
+    }
+}

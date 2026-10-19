@@ -275,6 +275,12 @@ public struct ConstellateTheme: Hashable, Codable, Sendable, Identifiable {
         layerBands.first { $0.layer == layer }?.color ?? code.plain
     }
 
+    /// Relation colours are fixed across themes (like the code palette) so the legend never changes meaning;
+    /// routed through the theme so a future theme can override them in one place.
+    public func color(for relation: RelationKind) -> RGBA {
+        relation.style.color
+    }
+
     public func color(for edge: EdgeKind) -> RGBA {
         switch edge {
         case .contains: edgeContains

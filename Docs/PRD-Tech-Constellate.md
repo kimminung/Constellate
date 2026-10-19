@@ -129,10 +129,12 @@
 | FR-1.9 | `maxFiles` 초과 시 파일 노드를 **라인 수 상위**부터 남기고 나머지는 폴더 노드의 `lineCount`에 합산해 손실 없이 가중치에 반영 | 🟡 |
 | FR-1.10 | `SampleGraph.orbitNotes()`: 폴더 접근 없이도 별자리를 보여줄 ~40파일 SwiftUI 앱 "Orbit Notes" 내장 샘플(레이어 5종, imports/inherits/references 엣지 포함) | 🔴 |
 | FR-1.11 | 인제스트 결과(`CodeGraph`)는 JSON으로 캐시(`Application Support/Constellate/graphs/<checksum>.json`)되어 재실행 시 즉시 로드, 수정일 변경 시 재인제스트 | 🟡 |
+| FR-1.12 | **관계 분류**(`RelationClassifier`, 포트폴리오 `relations.js` 포팅): 구조 엣지에 의미 `CodeEdge.relation: RelationKind?`를 붙인다 — `presents`(sheet / fullScreenCover / NavigationLink / navigationDestination / WindowGroup / present(…) 문맥 220자·4줄 안의 생성), `binds`(@State / @StateObject / @ObservedObject / @EnvironmentObject / @Bindable / @Environment(X.self) 래퍼 라인), `composes`(뷰 → 뷰 생성), `creates`(그 외 생성 `Type(`), `conforms`/`extends`(상속 절 / extension 대상), `delegates`(…Delegate / …DataSource 채택), `notifies`(같은 Notification 이름 post ↔ observe), `imports`, `uses`(그 외 참조). 우선순위 mentions < constructs < presents < binds. 분류되지 않은 엣지는 `RelationKind.fallback(for: EdgeKind)` | 🔴 |
+| FR-1.13 | **역할 추론**(`inferRole`): 경로·파일명·심볼·소스로 `CodeRole`(app / view / controller / viewModel / model / service / extension / test / doc / config / script / other)을 파일과 타입 노드의 `CodeNode.role`에 기록. 별 모양·카드 역할 칩·composes/creates 구분에 쓰인다 | 🔴 |
 
 ### 4.2 4D 별자리 레이아웃 (FR-2)
 
-레이아웃은 `ConstellationLayoutEngine(configuration:).layout(_:)`이 수행하는 **순수 함수**다(동일 그래프 → 동일 배치, 결정적). 내부 워커는 `RadialShellLayout`.
+레이아웃은 `ConstellationLayoutEngine(configuration:style:).layout(_:)`이 수행하는 **순수 함수**다(동일 그래프 → 동일 배치, 결정적). FR-2.1–2.11은 `.shells`/`.celestial` 워커 `RadialShellLayout`의 규칙이고, 포트폴리오에서 포팅한 스타일은 FR-2.14에 정리한다. 앱 기본값은 `LayoutStyle.appDefault = .celestial`, 엔진 기본값은 API 호환을 위해 `.shells`.
 
 | ID | 요구사항 | 우선 |
 |---|---|---|
@@ -147,8 +149,15 @@
 | FR-2.9 | **비공간 노드**(function/property, `kind.isSpatial == false`)는 **가장 가까운 공간 조상**(type → file)의 배치를 그대로 상속하고 `radius = 0` → 엣지 끝점으로만 쓰인다 | 🔴 |
 | FR-2.10 | `LayoutPlacement`에 `shell`, `sectorStart/End`, `sectorMid`가 남아 클러스터 오브/섹터 가이드 호를 그릴 수 있다. `ConstellationLayout.boundsMin/Max`는 dial 0 기준, `shellCount`는 최대 깊이 | 🔴 |
 | FR-2.11 | `centroid(of:timeDial:)` — 클러스터 멤버의 3D 평균 → 오브 위치. 다이얼 변경 시 함께 움직인다 | 🔴 |
-| FR-2.12 | 엣지 렌더: `contains`는 은은한 실선(부모→자식), 관계 엣지 4종은 테마 `color(for: EdgeKind)` + 파티클 흐름(from → to). 화면에 그리는 관계 엣지 상한 **1500**(weight 상위부터), 나머지는 선택 노드 주변에서만 표시 | 🔴 |
+| FR-2.12 | **엣지 렌더**(`EdgeSceneBuilder`, 포트폴리오 `rebuildEdges()` 포팅): `contains`는 얇은 직선 튜브(`edgeContains`), 관계는 `RelationKind`별 2차 베지어 튜브 — 불룩함 `min(1.4, 0.25·dist + 0.16) m × altitude`, 구조 중심(`layout.center`)에서 바깥(이머시브는 안쪽), **lane** 회전으로 종류별 3D 분리, 타입 계열 점선(0.06/0.045 m), flow 계열·포커스 엣지 화살촉, flow 계열 파티클(`FlowPath`). 배치 키 `EdgeBatchKey`(relation × emphasis × cycle)마다 머지 메시 1개. 모드 off / focus / all, 범례 숨김(`hidden`), 상한 관계 **1500**(포커스 → priority → weight), 포커스 밖 600개 초과 시 uses 제외, 트리 2500, 파티클 240(Reduce Motion ¼) | 🔴 |
 | FR-2.13 | `LayoutConfiguration`은 `Codable`이며 Dashboard의 "레이아웃" 시트에서 baseRadius/shellSpacing/timeDepth를 조정 가능. 변경 시 애니메이션 0.6 s로 재배치 | 🟡 |
+| FR-2.14 | **레이아웃 스타일** `LayoutStyle`: `.celestial`(구면 셸: 깊이 → 거리, 서브트리 → 방위, 레이어 → 고도각 `layerElevations` ±`elevationJitter`, 중심 = 눈높이 `eyeHeight` 1.45 m, 루트 = 머리 위 북극성), `.shells`(v1 원반), `.sphere`(포트폴리오 `sphere.js`: 경로 순서 피보나치 돔, 폴더 = 바깥 허브, `sphereSquash` 0.66, 반지름 ≥ `minSphereRadius`), `.treeRadial`(`treeRadial.js`: 잎 가중 섹터, 잎 수에 맞춰 커지는 깊이 링), `.wall`(`grid.js`를 사용자 앞 원통형 곡면으로), `.spiral`(`spiral.js`: 상승 나선). 공통: 모든 노드 배치, 카드 간격 `cardGap` 0.28 m, 카드 중심 ≥ `floorClearance` 0.35 m, 결정적. 앱은 `UserDefaults`에 영속하고 host가 `.layoutStyle`로 동기화 | 🔴 |
+| FR-2.15 | **시간 투영** `ConstellationLayout.project(_:timeDial:)`(인스턴스): 스타일의 `timeProjection`이 `.cylindrical`이면 FR-2.7(중심 `layout.center`의 수직축 기준), `.spherical`(celestial·sphere)이면 중심에서 3D 방향으로 `t·dial·timeDepth`만큼 민다. 정적 `project(_:timeDial:timeDepth:center:)`는 v1 호환 | 🔴 |
+| FR-2.16 | **의존 분석** `GraphInsights`: `isDependency` 관계를 파일 단위로 올려 의존/역의존 집합, 반복형 Tarjan SCC로 **순환**(2파일 이상, 큰 순), `impact`/`reach` BFS, Martin 지표(`NodeMetrics`: fan-in Ca, fan-out Ce, instability = Ce/(Ca+Ce), impact). 순환은 선택 노드의 순환만 칠한다(Swift 모듈 안 순환이 흔해 전부 칠하면 소음) | 🔴 |
+| FR-2.17 | **노드 별** `StarEncoder`: 모양 = 역할(`NodeStars.usdz` 글리프), 색 = 레이어, 크기 = Ca(`0.045 + 0.012·log2(1+Ca)` ≤ 0.11 m), 발광 = 최근성, 헤일로 = 선택된 순환. 카드 좌상단 위 `StarEncoder.anchor`. 별은 최대 1200개(허브 → Ca 순) | 🟡 |
+| FR-2.18 | **포커스 디밍**: 선택이 있고 관계 모드 ≠ off이면 `EdgeScene.related` 밖 카드의 불투명도 0.22 | 🟡 |
+| FR-2.19 | **스냅샷** `ConstellationSnapshot.make(graph:layout:theme:options:)`: 노드(위치·카드 폭·글리프·색)·아크 폴리라인·관계/역할 범례를 JSON으로 — Blender `render_graph.py`의 입력이자 디버깅 덤프 | ⚪ |
+| FR-2.20 | **관계 검색**: `CodeSearcher`가 관계 구문을 제약으로 이해 — 능동 "presents / observes / creates / embeds / delegates X"(및 "navigates to X"), 수동 "presented / observed / created / embedded / notified by·in·from X", 한국어 "X를 띄우는 / 관찰하는 / 생성하는 / 만드는 / 포함하는". 파일·타입·익스텐션이 답이 되며 멤버의 엣지를 접어 판단. `LocateCodeTool` 설명에 포함되어 호스트 AI도 쓴다 | 🟡 |
 
 **레이아웃 테스트 요구(Kit)**: (a) 자식 섹터가 부모 섹터 안에 있다, (b) 형제 섹터는 겹치지 않는다, (c) 깊이별 반지름이 정확하다, (d) dial = 0 투영 = position4.xyz, (e) dial ±1 사이에서 선형 보간이다, (f) 같은 입력 두 번 → 동일 출력(결정성).
 
@@ -274,7 +283,7 @@ sequenceDiagram
 | FR-6.8 | **리뷰 핀**: `pin(ReviewPin)` / `resolvePin(UUID, resolved:)`. 노드 + 선택적 라인. `ReviewPin.usdz` 모델이 카드 모서리에. 인스펙터 핀 목록(미해결 우선). resolve·삭제는 host 또는 작성자만(삭제는 `.resolvePin(resolved: true)`로 전파 — 전용 delete case 없음). **Markdown 내보내기** `Support/PinsExporter.swift`: iPad/visionOS `ShareLink`, macOS `fileExporter` | 🔴 |
 | FR-6.9 | **가이드 투어**: `tour(LearningTour)` 후 `tourStep(Int)`로 진행. host만 전진/후진. 각 스텝에 비콘 + 내레이션 말풍선(+TTS) | 🔴 |
 | FR-6.10 | **아바타**: 각 참가자는 `Avatar_Bust.usdz`(높이 0.45 m) + 이름판 + 액센트 색(`theme.avatarAccent` hue + `Participant.hueOffset`). 스테이지 링(`Stage_Ring.usdz`, 반지름 1.2 m, 6자리)에 입장 순서로 배치. visionOS에서 SharePlay 공간 Persona가 가능하면 Persona가 우선이고 흉상은 iPad/macOS 참가자용 | 🔴 |
-| FR-6.11 | 테마·다이얼·모드 변경은 host만 가능하며 `theme(ConstellateTheme)`, `timeDial(Float)`, `mode(MeetingMode)`로 전파. 다이얼은 0.1 s 쓰로틀 | 🔴 |
+| FR-6.11 | 테마·다이얼·모드·레이아웃 스타일·관계 모드 변경은 host가 `theme(ConstellateTheme)`, `timeDial(Float)`, `mode(MeetingMode)`, `layoutStyle(LayoutStyle)`, `relationMode(RelationDisplayMode)`로 전파(입장 시 full sync에도 포함). 다이얼은 0.1 s 쓰로틀. 범례의 종류별 숨김은 각자 로컬 | 🔴 |
 | FR-6.12 | 오프라인/솔로 모드: 세션 없이도 모든 기능이 로컬에서 동작(참가자 = 나 1명, role host) | 🔴 |
 
 **`ConstellateMessage` 전체**
@@ -297,6 +306,8 @@ sequenceDiagram
 | `tour` | `LearningTour` | host | reliable | 투어 정의 |
 | `tourStep` | `Int` | host | reliable | 현재 스텝 |
 | `followHost` | `Bool` | host | reliable | 따라오기 |
+| `layoutStyle` | `LayoutStyle` | host | reliable | 별자리 모양(모두 같은 형태 안에 선다) |
+| `relationMode` | `RelationDisplayMode` | host | reliable | 관계 표시 off / focus / all |
 
 ### 4.7 테마 (FR-7)
 
@@ -454,6 +465,28 @@ classDiagram
 5. **경계**: dial 0 기준 min/max(카드 반지름 포함), `shellCount = maxDepth`.
 6. 복잡도 O(N log N)(정렬) · 4000 파일 + 심볼 ~40k 노드에서 M1 기준 < 150 ms(백그라운드). `LayoutTests` 9건이 섹터 포함·형제 비겹침·반지름·투영 항등/연속·결정성을 검증한다.
 
+#### 5.2.1 다른 스타일 (`Layout/*.swift`, 공통 도우미 `LayoutContext`)
+
+| 워커 | 규칙 | 포팅 원본 |
+|---|---|---|
+| `RadialShellLayout(.celestial)` | 위 1–4의 (깊이, 섹터)를 눈높이 중심 구면좌표로: 거리 `r(d)`, 방위 = 섹터 중앙, 고도 = `layerElevations[layer] ± elevationJitter`. 카드 중심이 `floorClearance` 아래로 내려가면 고도를 올린다. 루트는 `(0, eyeHeight + 1.1·baseRadius, 0)` | 신규(천구) |
+| `SphereLayout` | 파일·타입을 경로 순서로 피보나치 구면에 배치, 반지름 `max(minSphereRadius, √(n·카드면적/4π))`. 원본은 경로 순서가 위도만 정해 폴더가 위도 띠가 되었으나, 같은 점 집합을 **뱀 모양 위도 밴드 순서로 재배열**해 폴더가 한 덩어리 패치를 이루고 허브가 그 바로 바깥에 선다. 세로 `sphereSquash` 돔으로 눌러 최저 카드가 `floorClearance` 위 | `sphere.js` |
+| `TreeRadialLayout` | 링 = 깊이(`shellSpacing`), 각 노드 각도 폭 ∝ 잎(파일) 수, 링이 파일을 못 담으면 `leaves·MIN_ARC/2π`로 커짐(MIN_ARC = 가장 넓은 카드 + 간격). 파일 높이는 레이어 밴드(모든 스타일에서 "높이 = 레이어"), 타입은 파일 뒤 짧은 기둥, 허브는 자기 범위에 맞추고 높이를 번갈아 들어 겹침 방지 | `treeRadial.js` |
+| `WallLayout` | 경로 순서 그리드(`cols = ⌈√(n·1.4)⌉`)를 사용자 앞 원통형 곡면(눈높이 중심)에 감아 넓은 벽의 가장자리도 같은 거리. 폴더는 떠 있는 라벨 대신 읽기 순서의 **머리 셀**(밀집 벽에서 라벨 충돌 제거), 타입은 파일 다음 | `grid.js` |
+| `SpiralLayout` | 경로 순서 상승 나선, 최대 ~10바퀴로 제한하고 바퀴당 카드 수를 프로젝트 크기에 맞춰 늘림, 반지름은 파일마다가 아니라 바퀴 수로 증가(원본 `+0.08·i`는 큰 저장소에서 폭주). 폴더는 자기 파일 직전의 정류장 | `spiral.js` |
+
+모든 워커는 `LayoutContext.finish`로 비공간 노드 상속·경계·`center`·`timeProjection`을 채운다. `LayoutStyleTests`가 스타일마다 모든 노드 배치·카드 비겹침·바닥 여유·결정성을 검증한다.
+
+#### 5.2.2 관계 · 분석 파이프라인
+
+```
+ProjectIngestor ─ SwiftSymbolExtractor(referenceFacts, notifications) ─ RelationClassifier ─▶ CodeEdge.relation, CodeNode.role
+CodeGraph ─▶ GraphInsights (deps · SCC cycles · impact · NodeMetrics)                       (AppModel.install, 백그라운드)
+(CodeGraph, ConstellationLayout, EdgeSceneOptions) ─▶ EdgeSceneBuilder.build ─▶ EdgeScene   (Task.detached, 세대 번호로 늦은 결과 폐기)
+EdgeScene.batches[EdgeBatchKey] ─▶ MeshFactory.mesh(from: TubeMesh) + FX_EdgeRamp UnlitMaterial (메인 액터)
+EdgeScene.flows ─▶ FlowParticles (프레임마다 위치 갱신)   EdgeScene.related ─▶ 포커스 디밍
+```
+
 ### 5.3 데이터 흐름
 
 ![dataflow](diagrams/dataflow.svg)
@@ -577,9 +610,11 @@ flowchart LR
 | ID | 요구사항 |
 |---|---|
 | NFR-4.1 | Kit: 테스트 커버리지 핵심 경로 100 %(theme·layout·cluster·search·extractor·digest), `swift test` ≤ 20 s |
-| NFR-4.2 | 앱: 3 플랫폼 `Scripts/build.sh all` 경고 0(deprecated/unused 기준). **현재 1건 잔존**: `AVAudioEngine.installTap` deprecation(`SpeechListener`, T5.9) |
+| NFR-4.2 | 앱: 3 플랫폼 `Scripts/build.sh all` 경고 0(deprecated/unused 기준). macOS는 **경고 0** 확인(2026-10-19: 순수 색 변환 `RGBA.cgColor`·`swiftUIColor` 등을 `nonisolated`로, `HostReply` `nonisolated`, 옵셔널 보간·미사용 바인딩·약한 self 재캡처 정리 → 35건 → 0). iPadOS·visionOS는 재확인 필요(이전 기록: `AVAudioEngine.installTap` deprecation, `SpeechListener`, T5.9) |
 | NFR-4.3 | 로깅: `os.Logger` 서브시스템 `com.coulson.Constellate`, 카테고리 ingest/layout/ai/voice/session |
 | NFR-4.4 | 외부 의존성 0 (Apple 프레임워크만) |
+| NFR-4.5 | 앱이 호출하는 Kit API는 반드시 `public` — 다른 테스트가 `@testable import`라 놓치는 접근 수준 회귀를 `AppFacingAPITests`(일반 `import`)가 Xcode 없이 `swift test`에서 잡는다. 앱이 새 Kit API를 쓰면 이 스위트에도 한 줄 추가 |
+| NFR-4.6 | 백그라운드 계산 결과(레이아웃·클러스터·관계 메시·카드 텍스처)는 세대 토큰으로 "가장 최근 요청"만 적용하고, 장면 재빌드는 컨트롤러가 기억하는 상태(선택·하이라이트·핀·비콘·소환)를 새 엔티티에 다시 입힌다 |
 
 ---
 
@@ -655,7 +690,22 @@ let layer = ProjectIngestor.inferLayer(path: "Sources/Views/Foo.swift", tags: ["
 let layout = ConstellationLayoutEngine(configuration: LayoutConfiguration()).layout(graph)
 let p3 = layout.position3(for: nodeID, timeDial: dial)                       // SIMD3<Float>?
 let c  = layout.centroid(of: cluster.memberNodeIDs, timeDial: dial)          // SIMD3<Float>?
-let p  = ConstellationLayout.project(placement, timeDial: dial, timeDepth: 1.2)
+let p  = layout.project(placement, timeDial: dial)                           // 스타일의 시간 투영(구면/원통)
+let celestial = ConstellationLayoutEngine(style: .celestial).layout(graph)   // LayoutStyle: celestial·shells·sphere·treeRadial·wall·spiral
+let frame = layout.boundingSphere                                            // (center, radius) — 카메라 프레이밍
+
+// Relations · insights · stars
+let rel = edge.semantic                                                      // RelationKind? (분류 or EdgeKind 폴백)
+let style = RelationKind.presents.style                                      // 색 · 점선 · flow · lane · altitude · 라벨
+let role = node.role                                                         // CodeRole? → role.style.glyph / label / color
+let insights = GraphInsights(graph: graph)
+let m = insights.metrics(for: id)                                            // NodeMetrics: fanIn, fanOut, instability, impact, cycleIndex
+let loop = insights.cycleMembers(of: id)                                     // [NodeID]
+let groups = RelationDigest.groups(for: id, in: graph)                       // [RelationGroup] — 인스펙터 "Presents / Observed by …"
+var options = EdgeSceneOptions(); options.mode = .focus; options.focus = [id]
+let scene = EdgeSceneBuilder.build(graph: graph, layout: layout, options: options)   // EdgeScene: batches · flows · related · counts
+let star = StarEncoder.appearance(for: node, theme: theme, fanIn: insights.fanIn(of: id), recency: w, inCycle: false)
+let snapshot = ConstellationSnapshot.make(graph: graph, layout: layout)      // Blender render_graph.py 입력
 
 // Analysis (AI Instructions · Dashboard 통계 · 투어 후보)
 let stats   = graph.stats()                                                  // GraphStats
@@ -677,6 +727,7 @@ let theme = ConstellateTheme.tinted(hue: 210, name: "Ocean")
 precondition(theme.validate().isEmpty)
 let bandColor = theme.color(for: node.layer)                                 // RGBA
 let edgeColor = theme.color(for: edge.kind)
+let relationColor = theme.color(for: RelationKind.binds)                     // 테마 불변
 
 // Session
 let digest = GraphDigest.checksum(graph)                                     // String (FNV-1a 64, hex)

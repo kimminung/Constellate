@@ -20,6 +20,10 @@ final class HostToolContext {
     func explain(_ rawID: String) -> HostReply {
         guard let id = resolve(rawID) else { return HostReply("Unknown node id \(rawID).") }
         var reply = HeuristicHost.explain(id, in: graph)
+        // Role, coupling, cycle and relations by meaning ("Presents → SettingsView") — what the constellation shows.
+        if let digest = model?.relationSummary(for: id), !digest.isEmpty {
+            reply.text += "\n\nRelations: " + digest
+        }
         if let node = graph.node(id) {
             let source = SourceProvider.source(for: node, in: graph, projectRoot: model?.projectRootURL)
             let preview = SourceProvider.previewLines(source, count: 14).joined(separator: "\n")
@@ -69,7 +73,7 @@ final class HostToolContext {
 
 nonisolated struct LocateCodeTool: Tool {
     let name = "locateCode"
-    let description = "Find code in the project from a natural-language description (names, kinds like view/model/test, tags like @State, 'inherits X', 'in folder Y'). Returns matching nodes with their ids."
+    let description = "Find code in the project from a natural-language description (names, kinds like view/model/test, tags like @State, 'inherits X', 'in folder Y', and relations: 'presents X', 'observed by X', 'creates X', 'embedded in X'). Returns matching nodes with their ids."
     let context: HostToolContext
 
     @Generable

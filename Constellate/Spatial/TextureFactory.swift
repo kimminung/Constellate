@@ -43,8 +43,15 @@ nonisolated enum TextureFactory {
 
     // MARK: - Code cards
 
-    /// Title + kind + a few highlighted code lines on the card background, with a layer-band stripe and border.
-    static func cardImage(title: String, subtitle: String, lines: [String], palette: CodePalette, band: RGBA) -> SendableImage? {
+    /// Role chip drawn in the card header ("View", "Model", … — `CodeRole.style`), the 2-D twin of the 3-D star.
+    nonisolated struct Chip: Sendable {
+        var label: String
+        var color: RGBA
+    }
+
+    /// Title + kind + a few highlighted code lines on the card background, with a layer-band stripe and border,
+    /// and an optional role chip in the top-right corner.
+    static func cardImage(title: String, subtitle: String, lines: [String], palette: CodePalette, band: RGBA, chip: Chip? = nil) -> SendableImage? {
         let w = cardWidth, h = cardHeight
         guard let ctx = makeContext(width: w, height: h) else { return nil }
         let W = CGFloat(w), H = CGFloat(h)
@@ -80,7 +87,26 @@ nonisolated enum TextureFactory {
         let subFont = CTFontCreateWithName("Menlo" as CFString, 14, nil)
         let codeFont = CTFontCreateWithName("Menlo" as CFString, 15, nil)
         let left: CGFloat = 30
-        drawText(title, at: CGPoint(x: left, y: H - 40), font: titleFont, color: palette.plain.cgColor, maxWidth: W - left - 20, in: ctx)
+        var titleRight: CGFloat = 20
+        if let chip, !chip.label.isEmpty {
+            let chipFont = CTFontCreateWithName("Menlo-Bold" as CFString, 13, nil)
+            let measure = CTLineCreateWithAttributedString(NSAttributedString(string: chip.label, attributes: [
+                NSAttributedString.Key(kCTFontAttributeName as String): chipFont
+            ]))
+            let textWidth = CGFloat(CTLineGetTypographicBounds(measure, nil, nil, nil))
+            let chipRect = CGRect(x: W - 18 - textWidth - 20, y: H - 44, width: textWidth + 20, height: 24)
+            let chipPath = CGPath(roundedRect: chipRect, cornerWidth: 12, cornerHeight: 12, transform: nil)
+            ctx.addPath(chipPath)
+            ctx.setFillColor(chip.color.withAlpha(0.22).cgColor)
+            ctx.fillPath()
+            ctx.addPath(chipPath)
+            ctx.setStrokeColor(chip.color.withAlpha(0.8).cgColor)
+            ctx.setLineWidth(1.5)
+            ctx.strokePath()
+            drawText(chip.label, at: CGPoint(x: chipRect.minX + 10, y: chipRect.minY + 7), font: chipFont, color: chip.color.cgColor, maxWidth: textWidth + 2, in: ctx)
+            titleRight = W - chipRect.minX + 8
+        }
+        drawText(title, at: CGPoint(x: left, y: H - 40), font: titleFont, color: palette.plain.cgColor, maxWidth: W - left - titleRight, in: ctx)
         drawText(subtitle, at: CGPoint(x: left, y: H - 62), font: subFont, color: palette.comment.cgColor, maxWidth: W - left - 20, in: ctx)
 
         ctx.setStrokeColor(palette.cardBorder.cgColor)
@@ -205,6 +231,17 @@ nonisolated enum TextureFactory {
             let c = CGPoint(x: s / 2, y: s / 2)
             ctx.drawRadialGradient(g, startCenter: c, startRadius: 0, endCenter: c, endRadius: s / 2, options: [])
         }
+        return ctx.makeImage().map(SendableImage.init)
+    }
+
+    /// Redraws a straight-alpha sprite (the Blender FX PNGs: white RGB + alpha) into a premultiplied context, so
+    /// additive particle blending fades with the mask instead of drawing a white square.
+    static func premultiplied(_ source: SendableImage) -> SendableImage? {
+        let w = source.image.width, h = source.image.height
+        guard let ctx = makeContext(width: w, height: h) else { return nil }
+        let rect = CGRect(x: 0, y: 0, width: w, height: h)
+        ctx.clear(rect)
+        ctx.draw(source.image, in: rect)
         return ctx.makeImage().map(SendableImage.init)
     }
 

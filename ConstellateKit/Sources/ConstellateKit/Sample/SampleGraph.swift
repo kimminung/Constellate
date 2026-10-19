@@ -383,7 +383,9 @@ public enum SampleGraph {
             let topLevel = Set(SampleGraph.files.compactMap { $0.path.split(separator: "/").first.map(String.init) })
 
             var pendingInherits: [PendingInherit] = []
-            var pendingRefs: [(file: NodeID, name: String)] = []
+            var pendingRefs: [(file: NodeID, name: String, fact: ReferenceFact)] = []
+            /// Roles per file / type node (composes vs creates needs the target's role).
+            var roles: [NodeID: CodeRole] = [:]
 
             for spec in SampleGraph.files {
                 let components = spec.path.split(separator: "/").map(String.init)
@@ -410,12 +412,19 @@ public enum SampleGraph {
                 if components.first == "Tests" { fileTags.insert("test") }
                 for imp in spec.imports where !topLevel.contains(imp) { fileTags.insert("imports:\(imp)") }
                 let fileLayer = ProjectIngestor.inferLayer(path: spec.path, tags: fileTags)
+                // Roles and relation flavours come from the same classifier the ingestor uses, run on the rendered snippet.
+                let fileSource = Model.render(file: spec, types: spec.types, includeHeader: true)
+                let extracted = SwiftSymbolExtractor().extract(source: fileSource)
+                let fileRole = RelationClassifier.inferRole(path: filePath, language: "swift", source: fileSource, symbols: extracted.symbols)
+                roles[fileID] = fileRole
                 add(CodeNode(id: fileID, name: fileName, kind: .file, path: filePath, parent: parent, language: "swift",
-                             lines: LineRange(start: 1, end: spec.lines), lineCount: spec.lines, modifiedAt: modifiedAt, layer: fileLayer, tags: fileTags))
+                             lines: LineRange(start: 1, end: spec.lines), lineCount: spec.lines, modifiedAt: modifiedAt, layer: fileLayer, tags: fileTags,
+                             role: fileRole))
                 for imp in spec.imports where topLevel.contains(imp) && imp != components.first {
-                    edges.append(CodeEdge(from: fileID, to: NodeID("\(module)/\(imp)"), kind: .imports))
+                    edges.append(CodeEdge(from: fileID, to: NodeID("\(module)/\(imp)"), kind: .imports, relation: .imports))
                 }
-                for name in spec.uses { pendingRefs.append((fileID, name)) }
+                let facts = RelationClassifier.referenceFacts(cleanedLines: SwiftSymbolExtractor.stripCommentsAndStrings(fileSource), candidates: Set(spec.uses))
+                for name in spec.uses { pendingRefs.append((fileID, name, facts[name] ?? .mentions)) }
 
                 // Allocate line ranges.
                 let header = 3 + spec.imports.count + 1
@@ -429,6 +438,7 @@ public enum SampleGraph {
                     let range = LineRange(start: cursor, end: min(spec.lines, cursor + span - 1))
                     cursor = range.end + 2
                     let typeID = Model.addType(t, parent: fileID, qualifier: "", filePath: filePath, range: range, modifiedAt: modifiedAt, fileLayer: fileLayer, isTestFile: fileTags.contains("test"),
+                                               fileRole: fileRole, roles: &roles,
                                                add: add, typeIDs: &typeIDs, typeFile: &typeFile, enclosing: &enclosing, pendingInherits: &pendingInherits, fileID: fileID)
                     sources[typeID] = Model.render(file: spec, types: [t], includeHeader: false)
                 }
@@ -437,7 +447,7 @@ public enum SampleGraph {
                     add(CodeNode(id: id, name: f.name, kind: .function, path: filePath, parent: fileID, language: "swift", lines: LineRange(start: cursor, end: cursor + 2), lineCount: 3, modifiedAt: modifiedAt, layer: fileLayer, tags: f.isAsync ? ["async"] : []))
                     cursor += 4
                 }
-                sources[fileID] = Model.render(file: spec, types: spec.types, includeHeader: true)
+                sources[fileID] = fileSource
             }
 
             // Folder dates
@@ -445,20 +455,24 @@ public enum SampleGraph {
                 if let d = folderDates[n.id] { nodes[i].modifiedAt = d }
             }
 
-            // Inherits
+            // Inherits (conforms / delegates)
             var tagAdditions: [NodeID: Set<String>] = [:]
+            var typeLinkedTargets: [NodeID: Set<NodeID>] = [:]
             for p in pendingInherits {
                 if let target = typeIDs[p.superName], target != p.type {
-                    edges.append(CodeEdge(from: p.type, to: target, kind: .inherits))
+                    edges.append(CodeEdge(from: p.type, to: target, kind: .inherits, relation: RelationClassifier.inheritanceRelation(superName: p.superName)))
+                    if let file = typeFile[p.type] { typeLinkedTargets[file, default: []].insert(target) }
                 } else {
                     tagAdditions[p.type, default: []].insert("inherits:\(p.superName)")
                 }
             }
-            // References (file → type in another file)
+            // References (file → type in another file), classified like the ingestor does.
             var seenRefs: Set<CodeEdge> = []
-            for (file, name) in pendingRefs {
+            for (file, name, fact) in pendingRefs {
                 guard let target = typeIDs[name], typeFile[target] != file else { continue }
-                let e = CodeEdge(from: file, to: target, kind: .references, weight: 1)
+                if typeLinkedTargets[file]?.contains(target) == true { continue }
+                let relation = RelationClassifier.relation(for: fact, sourceRole: roles[file], targetRole: roles[target])
+                let e = CodeEdge(from: file, to: target, kind: .references, weight: 1, relation: relation)
                 if seenRefs.insert(e).inserted { edges.append(e) }
             }
             for (i, n) in nodes.enumerated() {
@@ -490,6 +504,7 @@ public enum SampleGraph {
         @discardableResult
         private static func addType(
             _ t: TypeSpec, parent: NodeID, qualifier: String, filePath: String, range: LineRange, modifiedAt: Date, fileLayer: ArchitectureLayer, isTestFile: Bool,
+            fileRole: CodeRole, roles: inout [NodeID: CodeRole],
             add: (CodeNode) -> Void, typeIDs: inout [String: NodeID], typeFile: inout [NodeID: NodeID], enclosing: inout [NodeID: NodeID],
             pendingInherits: inout [PendingInherit], fileID: NodeID
         ) -> NodeID {
@@ -498,8 +513,10 @@ public enum SampleGraph {
             var tags = typeTags(t)
             if isTestFile && t.kind != .extension { tags.insert("test") }
             let layer: ArchitectureLayer = tags.contains("SwiftUI.View") ? .presentation : (isTestFile ? .test : fileLayer)
+            let role = RelationClassifier.role(forType: tags, kind: t.kind, fileRole: fileRole)
+            roles[id] = role
             add(CodeNode(id: id, name: t.name, kind: t.kind == .extension ? .extensionDecl : .type, path: filePath, parent: parent, language: "swift",
-                         lines: range, lineCount: range.count, modifiedAt: modifiedAt, layer: layer, tags: tags))
+                         lines: range, lineCount: range.count, modifiedAt: modifiedAt, layer: layer, tags: tags, role: role))
             if t.kind != .extension {
                 typeIDs[t.name] = id
                 typeFile[id] = fileID
@@ -512,6 +529,7 @@ public enum SampleGraph {
                 let nestedRange = LineRange(start: cursor, end: cursor + span - 1)
                 cursor = nestedRange.end + 2
                 addType(n, parent: id, qualifier: qualified, filePath: filePath, range: nestedRange, modifiedAt: modifiedAt, fileLayer: fileLayer, isTestFile: isTestFile,
+                        fileRole: fileRole, roles: &roles,
                         add: add, typeIDs: &typeIDs, typeFile: &typeFile, enclosing: &enclosing, pendingInherits: &pendingInherits, fileID: fileID)
             }
             for p in t.props {

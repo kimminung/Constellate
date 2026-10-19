@@ -141,7 +141,7 @@ floorGrid(S 0.26): Ocean `#35455A` · Moss `#355A47` · Ember `#5A4135` · Nebul
 | 스테이지 링 | 반지름 **1.2 m**, 참가자 자리 6(60° 간격), 사용자 뒤쪽 반원 우선 | |
 | 아바타 흉상 | 높이 **0.45 m**, 바닥 기준 | |
 | 비콘 | 높이 **3 m**, 링 2개(반지름 0.25 / 0.45 m, 높이 0.02 / 1.0 m) | |
-| 리뷰 핀 | **0.08 m**, 카드 모서리 바깥 0.02 m | |
+| 리뷰 핀 | **0.08 m**, 카드 윗변에 바늘 끝을 꽂고 역할 별 오른쪽부터 한 줄(최대 6개, 좁은 카드에서는 35 %까지 축소) | `CodeNodeEntity.layoutPins` |
 | 포인터 다트 | **0.05 m** | |
 | 소환 복제 카드 | 사용자 앞 **0.7 m**, 높이 1.1 m(손 높이) | FR-5.4 |
 | 타임 다이얼 변위 | `timeDepth` 1.2 m × t × dial (반경 방향) + 그 35 % (높이) | FR-2.7 |
@@ -156,6 +156,33 @@ floorGrid(S 0.26): Ocean `#35455A` · Moss `#355A47` · Ember `#5A4135` · Nebul
 | data | 1.15 | amber `#FFD166` | `cylinder` |
 | infrastructure | 0.75 | grey `#8A93A6` | `wrench` |
 | test | 0.50 | lime `#B8FF7A` | `checkmark.seal` |
+
+### 4.1 레이아웃 스타일 (`LayoutStyle`, 기본 `.celestial`)
+
+그래프의 형태는 CoulsonPortfolioWeb `Public/js/space/layouts/*`(sphere / treeRadial / grid / spiral)를 미터 단위로 포팅한 5종 + 새 기본값 천구(celestial)다. 어떤 스타일이든 색·크기·별 모양·시간(w)의 의미는 같고 **위치 규칙만** 바뀐다(Dashboard·메뉴에서 선택, SharePlay로 동기화, `UserDefaults` 영속).
+
+| 스타일 | 축의 의미 (`LayoutStyle.axes`) | 치수 | 시간 투영 |
+|---|---|---|---|
+| **천구 · Celestial** (기본) | 거리 = 트리 깊이 · 방위 = 서브트리 섹터 · **고도 = 레이어**(presentation 34° / domain 18° / unknown 8° / data 0° / infrastructure −9° / test −15°, ±4.5° 지터) · 바깥 = 최근 | 눈높이 1.45 m 중심 구면 셸 1.6 + 1.25 m·(d−1), 루트 = 머리 위 "북극성"(1.45 + 1.76 m), 카드 중심 ≥ 바닥 0.35 m | 구면(중심에서 3D 방향으로 밀기) |
+| 셸 · Shells | 반지름 = 깊이 · 각도 = 서브트리 · 높이 = 레이어 밴드(위 표) | v1 원반, 높이 0.35–2.4 m | 원통(수평 + 35 % 들림) |
+| 구 · Sphere | 피보나치 돔에 경로 순서 · 폴더 = 바깥 허브 | 반지름 ≥ 2.4 m, 세로 0.66 | 구면 |
+| 트리 방사형 · Tree radial | 링 = 깊이 · 각도 ∝ 서브트리 파일 수 · 높이 = 레이어 | 링이 잎 수에 맞춰 커짐 | 원통 |
+| 벽 · Wall | 열·행 = 경로 순서(프리오더) · 폴더 = 블록 머리 | 사용자 앞 원통형 곡면 벽 | 원통 |
+| 나선 · Spiral | 높이·회전 = 경로 순서 | 상승 나선 | 원통 |
+
+천구에서는 레이어 사이의 세로 간격이 깊이와 함께 커져(같은 각도라도 멀수록 높이 차가 큼) v1 원반의 "2 m 두께" 한계가 사라진다. 셸 반지름(1.6 + 1.25 m·k)은 바닥 아스트롤라베의 링과 같다 — 원반(Shells)에서는 카드가 링 바로 위에 서고, 천구에서는 같은 반지름이 눈높이 중심의 구면 거리가 된다(§9 `Floor_Grid`).
+
+### 4.2 별(노드 글리프) 배치 — `StarEncoder`
+
+| 채널 | 의미 | 값 |
+|---|---|---|
+| 모양 | 역할 `CodeRole`(App · View · Controller · ViewModel · Model · Service · Extension · Test · Doc · Config · Script · Other) + 허브(Folder · Module) | `NodeStars.usdz` 프림 14종 |
+| 색 | 아키텍처 레이어(카드 띠와 같은 색) | `theme.color(for: layer)` |
+| 크기 | 결합도 — 이 파일에 의존하는 파일 수(Ca) | `min(0.11, 0.045 + 0.012·log2(1 + Ca))` m, 폴더 0.075, 모듈 0.12 |
+| 발광 | 최근성 w | glow = 0.45 + 0.55 w → emissive 0.5 + 0.5 × round(4 · glow) |
+| 헤일로 | 선택한 노드의 파일이 속한 **의존 순환**의 모든 파일 | `Star_Halo`, `#FF5F6D` |
+
+위치: 카드 로컬 좌표 `(−w/2 + 0.55 s, h/2 + 0.65 s, +0.01)` — 좌상단 모서리 바로 위(제목을 가리지 않음, `StarEncoder.anchor`). 카드 폭과 무관하게 미터 크기 일정. 2500 카드 중 별은 최대 1200개(허브 → Ca 순)로 드로콜 예산을 지킨다.
 
 ---
 
@@ -218,12 +245,15 @@ Reduce Motion: 비행 대신 크로스페이드 0.4 s.
 
 | 이펙트 | 구성 | 색 | 타이밍 |
 |---|---|---|---|
-| **비콘** | `Beacon.usdz` 빛기둥(높이 3 m, 반지름 0.06→0.02 테이퍼, 알파 상단 페이드) + 링 2(회전 ±0.4 rad/s) | `theme.beacon` `#FFD166` | 등장 0.5 s(바닥에서 솟음), 유지 → 해제 0.3 s |
+| **비콘** | `Beacon.usdz`(코어 빔 + 반투명 외피 + 트랙터 링 3 + 바닥 메달리온); 없으면 `FX_Beam` 교차 쿼드 2장. 바닥 물결 2개 = `FX_Ring` 스프라이트(0.3 → 2.4 m, 반 주기 엇갈림, 페이드) | `theme.beacon` `#FFD166` | 등장 0.5 s(바닥에서 솟음), 유지 → 해제 0.3 s |
 | **소환 가이드선** | 원본 카드 ↔ 복제 카드 실선(두께 0.003 m), 점 흐름 | `highlight` 60 % | 복제 카드 비행 0.9 s 동안 그려지고 유지 |
-| **하이라이트 링** | 카드 둘레 토러스, 두께 0.004 | `highlight` | 1.2 s 펄스 |
+| **선택·하이라이트 글로우** | 카드 뒤 `FX_CardGlow` 쿼드(카드 + 사방 0.08) — 카드 외곽 SDF의 선명한 림 + 부드러운 외광. 없으면 단색 프레임 | 선택 = `code.plain`, AI 하이라이트 = `highlight` | 즉시 |
 | **레이저 포인터** | 참가자 위치 → 목표점 얇은 선(0.002 m) + `Pointer_Dart.usdz` | 참가자 액센트 | 10 Hz 갱신, 0.5 s 미수신 시 페이드 |
 | **리뷰 핀** | `ReviewPin.usdz` 0.08 m, 미해결 = 액센트 발광, 해결 = 회색 | 작성자 액센트 | 꽂힐 때 0.25 s 바운스 |
-| **엣지 파티클** | 관계 엣지 위를 from→to로 흐르는 점(속도 0.6 m/s, 밀도 weight 비례, 최대 이미터 64) | `color(for: EdgeKind)` | 상시, Reduce Motion 25 % |
+| **관계 튜브** | 관계 종류별 2차 베지어 튜브(§7.3), `FX_EdgeRamp`로 출발 0.28 → 도착 1.0 밝기(정지 화면에서도 방향이 읽힘), 타입 계열은 점선(0.06 / 0.045 m), flow 계열과 포커스 엣지는 화살촉(t ≈ 0.96) | `RelationKind.style.color`(테마 불변), 트리선 `edgeContains` | 즉시 재구성(백그라운드 빌드) |
+| **흐름 파티클** | flow 계열 엣지를 따라 흐르는 스프라이트 — 보통 `FX_Glow` 4.5 cm, 포커스 `FX_Spark`(회절 스파이크) 7.5 cm, 경로 양 끝 12 %에서 커지고 작아짐 | 관계 색 + 밝게 | 0.42 m/s(포커스 0.55), 최대 240개, Reduce Motion 25 % |
+| **포커스 디밍** | 선택이 있고 관계 모드 ≠ off이면 선택과 관계로 이어진 카드만 남고 나머지는 불투명도 0.22 | — | 엣지 재구성과 함께 |
+| **순환 헤일로** | 선택 노드의 파일이 의존 순환에 있으면 순환의 모든 파일 별에 `Star_Halo`, 순환 엣지는 붉은 굵은 튜브 | `#FF5F6D` | 선택 시 |
 | **타임 다이얼 잔상** | 다이얼 조작 중 카드 이동 궤적 얇은 선 | 레이어 색 30 % | 조작 종료 후 0.4 s 페이드 |
 
 ---
@@ -232,12 +262,13 @@ Reduce Motion: 비행 대신 크로스페이드 0.4 s.
 
 | 상태 | 테두리(`cardBorder`) | 배경 | 추가 요소 | 전환 |
 |---|---|---|---|---|
-| 기본 | 흰 14 % | `#0E1220` 78 % | 레이어 밴드 색 상단 띠 0.004 m | — |
+| 기본 | 흰 14 % | `#0E1220` 78 % | 레이어 밴드 색 왼쪽 띠, 헤더 오른쪽 **역할 칩**(역할 색), 부제 `kind · layer · lines · in Ca / out Ce`, 좌상단 위 **별** | — |
 | 호버/시선 | 흰 30 % | 동일 | 살짝 확대 1.04× | 0.15 s |
-| 선택 | 레이어 색 100 % | 82 % | 인스펙터 동기화, 지역 엣지 표시 | 0.2 s |
-| AI 하이라이트 | `highlight` 링 | 동일 | 1.2 s 펄스 링 | 0.3 s |
+| 선택 | `FX_CardGlow` (plain) | 82 % | 인스펙터 동기화, 관계 포커스(강조 튜브 + 스파크 파티클), 나머지 디밍 | 0.2 s |
+| AI 하이라이트 | `FX_CardGlow` (`highlight`) | 동일 | 디밍 제외 | 0.3 s |
+| 디밍(포커스 밖) | 동일 | 동일 | 엔티티 전체 불투명도 0.22 (`OpacityComponent`). 선택 노드의 내용물·하이라이트된 카드는 디밍 안 함 | 엣지 재구성 · 하이라이트 변경 시 |
 | 소환 복제 | `highlight` 60 % | 90 % (더 불투명) | 원본과 가이드선, 닫기 버튼 | 0.9 s 비행 |
-| 핀 있음 | 기본 | 기본 | 모서리 `ReviewPin` (미해결 수 배지) | 0.25 s 바운스 |
+| 핀 있음 | 기본 | 기본 | 윗변 `ReviewPin`(별 오른쪽, 미해결 개수만큼, 테마 비콘 색) | 0.25 s 바운스 |
 | LOD(멀리) | 없음 | 레이어 색 40 % 솔리드 | 텍스트 없음 | 거리 > 6 m에서 크로스페이드 |
 | 읽기 불가/구조만 | 회색 점선 | 60 % | "구조만 보기" 아이콘 | — |
 
@@ -254,6 +285,32 @@ Reduce Motion: 비행 대신 크로스페이드 0.4 s.
 | 투어 스텝 전환 | 2음 차임 | 0.3 s |
 
 모든 소리는 공간 오디오(`SpatialAudioComponent`)로 해당 엔티티 위치에서 재생하고, 설정에서 끌 수 있다. 음량은 −18 LUFS 기준 통일.
+
+## 7.3 관계 시각 언어 (`RelationKind`, 포트폴리오 `EDGE_TYPES` 포팅)
+
+구조 엣지(`EdgeKind`: imports / inherits / references / calls)는 그대로 두고, 그 위에 **무엇을 하는 관계인지**(`RelationKind`)를 `RelationClassifier`가 붙인다. 색은 코드 팔레트처럼 테마와 무관하게 고정이라 범례의 의미가 바뀌지 않는다. 방향은 항상 "의존하는 쪽 → 의존받는 쪽"이고, 데이터가 거꾸로 흐르는 `binds`만 화살표·파티클을 뒤집어 그린다.
+
+| 관계 | 색 | 선 | flow(화살촉·파티클) | lane(rad) / altitude | 뜻 |
+|---|---|---|---|---|---|
+| 화면 전환 · Presents | `#FF9E64` | 실선 | ● | 1.22 / 1.45 | sheet / NavigationLink / WindowGroup / present → 목적지 |
+| 상태 흐름 · Binds | `#9ECE6A` | 실선 | ●(역방향) | 0.87 / 1.15 | @State / @Environment / @Bindable … 데이터 원본 → 뷰 |
+| 알림 · Notifies | `#FFD60A` | 실선 | ● | −1.31 / 1.6 | 같은 Notification 이름 post → observe |
+| 생성 · Creates | `#E0AF68` | 실선 | ● | −0.96 / 1.25 | 생성하는 곳 → 생성되는 타입 |
+| 뷰 포함 · Composes | `#7AA2F7` | 실선 | — | 0.44 / 1.0 | 부모 뷰 → 자식 뷰 |
+| 델리게이트 · Delegates | `#F7768E` | 점선 | ● | −0.35 / 1.05 | 구현 → 델리게이트 프로토콜 |
+| 채택·상속 · Conforms | `#BB9AF7` | 점선 | — | −0.62 / 0.85 | 타입 → 프로토콜/부모 |
+| 호출 · Calls | `#FFD166` | 실선 | ● | −1.1 / 1.3 | 함수 → 함수(예약) |
+| 확장 · Extends | `#7DCFFF` | 점선 | — | 0.18 / 0.7 | extension → 원본 타입 |
+| import · Imports | `#58D7E8` | 실선(조용) | — | 0 / 0.38 | 파일 → 모듈/최상위 폴더 |
+| 타입 참조 · Uses | `#8B93A5` | 실선(조용) | — | 0 / 0.55 | 사용 → 정의 (가장 흔하고 정보가 적어 가장 흐리게) |
+
+- **곡선**: 포트폴리오 그대로 2차 베지어, 불룩함 `min(1.4, 0.25·dist + 0.16) m × altitude`, 구조 중심에서 바깥으로(이머시브에서는 사용자를 향해 안쪽으로). **lane**은 불룩한 방향을 현(chord) 축으로 회전시켜, 같은 두 카드 사이의 서로 다른 관계가 겹치지 않고 3D 공간에서 갈라진다 — "고차원 구분".
+- **굵기**: uses/imports 2.1 mm, 그 외 3.1 mm, × (faint 0.8 / normal 1 / focus 1.6) × (1 + 0.25·log2 weight), 순환 ×1.4.
+- **불투명도**: 트리선 0.30(포커스 밖 0.10), uses·imports 0.26, 나머지 0.62, 포커스 0.95, 순환 0.85.
+- **모드**(포트폴리오 `L` 키): off(트리선만) → focus(선택과 닿는 관계만) → all. ⌘L / 메뉴 / 툴바 / 인스펙터에서 순환, 범례에서 종류별 숨김.
+- **예산**: 관계 1500개(포커스 → 우선순위 → weight 순), 포커스 밖 엣지가 600개를 넘으면 uses부터 제외, 파티클 240개.
+
+**역할 추론**(`CodeRole`, 포트폴리오 `inferRole`): 경로·파일명·심볼·소스로 App / View / Controller / ViewModel / Model / Service / Extension / Test / Doc / Config / Script / Other를 정한다. 카드의 역할 칩과 별의 모양, `composes`(뷰→뷰) / `creates`(그 외) 구분에 쓰인다.
 
 ## 8. 테마별 무드보드
 
@@ -280,20 +337,27 @@ Reduce Motion: 비행 대신 크로스페이드 0.4 s.
 
 | 파일 | 용도 | 치수 | 머티리얼 슬롯 | 폴리 예산(삼각형) | 폴백(에셋 없을 때) |
 |---|---|---|---|---|---|
-| `HostOrb.usdz` | 호스트 AI 오브 정적 형태 | r 0.12 m | `Core`, `Band0`·`Band1`·`Band2`·`Band3`, `Shell`, `Glass` | ≤ 6k | 코드 생성 구 + 토러스 4 |
-| `ClusterOrb.usdz` | 클러스터 오브 껍질 | r 0.18 m | `Shell`, `Glass` | ≤ 4k | 와이어 구 |
-| `Avatar_Bust.usdz` | 참가자 흉상 + 이름판 링 | h 0.45 m | `Shell`, `Accent` | ≤ 8k | 캡슐 + 링 |
-| `Beacon.usdz` | 소환 비콘 | h 3 m | `Accent`(기둥·링) | ≤ 2k | 실린더 + 토러스 2 |
-| `ReviewPin.usdz` | 리뷰 핀 | 0.08 m | `Accent`, `Shell` | ≤ 1k | 콘 + 구 |
-| `Stage_Ring.usdz` | 회의 스테이지 링(6자리 마커) | r 1.2 m | `Shell`, `Accent`(자리 마커) | ≤ 3k | 토러스 + 디스크 6 |
-| `Pointer_Dart.usdz` | 레이저 포인터 끝 | 0.05 m | `Accent` | ≤ 300 | 콘 |
-| `Textures/Sky_Dark.png` | Dark 하늘 등장방형 — Cycles 파노라마 카메라, 순수 emission 월드(그라데이션 `#0A0B14→#121733→#05070F` + 성운 `#1A1F4A` + Voronoi 1–2 px 별) | 4096×2048 | — | 32 샘플, **디노이즈 OFF**(별 보존) | numpy 폴백(`--fallback`) |
-| `Textures/Sky_Tint.png` | Sky_Dark의 8-bit 그레이스케일 밝기 맵(8×8 블록 평균으로 정규화, 최댓값 1.0); 앱이 `HSL(H, 0.34, 0.17)`을 곱함 | 4096×2048 | — | — | 동일 |
-| `Textures/Floor_Grid.png` | 바닥 그리드 straight-alpha RGBA(흰 RGB, 1 m 셀 24개, 4 m마다 굵은 선, 가장자리 방사형 페이드) | 2048×2048 | — | — | 코드 생성 그리드 |
+| `HostOrb.usdz` | 호스트 AI 오브 — v2 **혼천의**: 코어 r 0.054, 적도·자오선 2·황도(23.4°) 링(Band0…3), 72눈금 다이얼, 내부 9별 별자리, 유리 셸 r 0.135 | r 0.135 m | `Core`, `Band0`·`Band1`·`Band2`·`Band3`, `Glass` | 9 788 (≤ 14k) | 코드 생성 구 + 토러스 4 |
+| `ClusterOrb.usdz` | 클러스터 오브 — 측지 격자(베벨 스트럿 + 관절 별), 기울어진 궤도 링 2, 작은 코어 | r 0.18 m | `Shell`, `Glass`, `Core` | 3 816 (≤ 6.5k) | 와이어 구 |
+| `Avatar_Bust.usdz` | 참가자 — 테이퍼 어깨 + 액센트 파이핑, 바이저 헬멧, 헤드셋·마이크 붐, 칼라 링, 이름판 링 | h 0.45 m | `Base`, `Accent` | 7 042 (≤ 9.5k) | 캡슐 + 링 |
+| `Beacon.usdz` | 소환 비콘 — 코어 빔 + 반투명 외피, 트랙터 링 3, 상단 보석, 바닥 메달리온(48눈금) | h 3 m | `Accent`, `Core`, `Glass`, `Base` | 3 500 (≤ 6k) | `FX_Beam` 교차 쿼드 → 실린더 |
+| `ReviewPin.usdz` | 리뷰 핀 — 강철 바늘, 액센트 칼라, 라운드 브릴리언트 보석 머리 | 0.08 m | `Accent`, `Base` | 488 (≤ 1.2k) | 콘 + 구 |
+| `Stage_Ring.usdz` | 회의 스테이지 — 아스트롤라베 띠 + 발광 인레이, 72 각도 눈금, 육각 좌석 패드 6, 유리 중심 나침반 장미 | r 1.2 m | `Shell`, `Accent`, `Glass` | 6 712 (≤ 9k) | 토러스 + 디스크 6 |
+| `Pointer_Dart.usdz` | 레이저 포인터 끝 — 육각 쌍뿔 크리스털 + 허리 칼라 | 0.05 m | `Accent` | 156 (≤ 300) | 콘 |
+| `NodeStars.usdz` | 노드 별 글리프 15 프림(§4.2 표 + `Star_Halo`), 한 줄 배치(x = i · 0.16 m), 최대 치수 0.1 m, 플랫 셰이딩 | 0.1 m | `Accent`, `Glass`(헤일로) — 앱이 레이어 색 PBR로 교체 | 글리프당 ≤ 220 (합 1 169) | 작은 발광 구 |
+| `Textures/FX_Glow.png` | 가우시안 코어 + 지수 꼬리 글로우(흰 RGB + 알파) | 256² | — | — | `TextureFactory.glowDot` |
+| `Textures/FX_Spark.png` | 점 코어 + 회절 스파이크 4 + 대각 4 | 256² | — | — | glowDot |
+| `Textures/FX_Ring.png` | 물결 링(r 0.4) + 안쪽 가는 선 + 옅은 채움 | 512² | — | — | 압출 링 |
+| `Textures/FX_Beam.png` | 빛기둥 단면(코어 + 외피, 바닥 플레어, 위로 페이드) | 64×512 | — | — | 실린더 |
+| `Textures/FX_EdgeRamp.png` | 엣지 진행 방향 밝기 램프(u 0 → 1) | 256×8 | — | — | 단색 튜브 |
+| `Textures/FX_CardGlow.png` | 카드 외곽 SDF 림 + 외광(카드 + 사방 0.08) | 580×424 | — | — | 단색 프레임 |
+| `Textures/Sky_Dark.png` | Dark 하늘 등장방형 — Cycles 파노라마, 순수 emission `Field` 그래프: 부드러운 수평선 헤이즈, **은하수**(사용자 정면 18° 위 벌지, 58° 기울기, 별 구름 + 먼지 균열), 성운 2층(인디고·자두), **별 등급 4단계**(띠 안 미분해 입자 / 약 / 중 / 밝음 + 헤일로, 거듭제곱 밝기, 색온도 틴트) | 4096×2048 | — | 12 샘플, **디노이즈 OFF** — 블록 중앙값 OKLab L ≤ 0.29, chroma ≤ 0.06 | numpy 폴백(`--fallback`, v1 룩) |
+| `Textures/Sky_Tint.png` | Sky_Dark의 8-bit 그레이스케일 밝기 맵(8×8 블록 평균으로 정규화, 최댓값 1.0); 앱이 테마 hue를 곱함 | 4096×2048 | — | — | 동일 |
+| `Textures/Floor_Grid.png` | **아스트롤라베 바닥**(24 m) — 깊이 셸 반지름(1.6 + 1.25k m) 링 + 5°/15° 눈금, 반 셸 원, 15° 스포크 24(방위 4개 강조), 중심 1 m 격자, 원점 레티클, 11 m 베젤, 방사형 페이드. 흰 RGB straight-alpha | 2048×2048 | — | — | 코드 생성 그리드 |
 
 공통 규칙: 단위 미터, +Y up, 앞 −Z(Blender +Y → USD −Z; 아바타 얼굴·다트 끝이 이 방향), 피벗 = 바닥 중심(오브는 중심). 에셋 자체 색은 환경 규칙(chroma ≤ 0.16, L ≤ 0.30)을 따르고, 발광은 `Accent` 슬롯과 오브 `Core`/`Band*`만(Core = `#E9E4FF` × 4). 머티리얼 이름은 고정 — `Core`, `Band0…Band3`, `Shell`, `Accent`, `Glass`, `Base` — 앱(`AssetLoader`)이 이름으로 찾아 `PhysicallyBasedMaterial`로 **교체**하므로 USDZ의 PBR 값은 "미리보기용"이다. 모든 USDZ는 zip 무결성·`upAxis`·머티리얼·bbox·삼각형(< 20k)·크기(< 2 MB) 검사와 `usdchecker --arkit`를 통과했다.
 
-**알려진 갭(2026-10-19)**: `Avatar_Bust.usdz`의 `Accent` 슬롯을 참가자 액센트 색으로 런타임 재틴트하는 코드가 아직 없다(에셋 기본 색으로 표시) — Tech PRD O12.
+**v2 렌더**: `Blender/renders/layout_gallery.png`(6 스타일), `layout_celestial_eye.png`(사용자 시점), `node_stars.png`(글리프 범례), `relation_legend.png`(관계 범례) — 모두 Kit이 계산한 실제 배치(`Blender/data/*.json`)로 렌더.
 
 ---
 
@@ -305,15 +369,17 @@ Reduce Motion: 비행 대신 크로스페이드 0.4 s.
 
 ```sh
 BLENDER=/Applications/Blender.app/Contents/MacOS/Blender
-$BLENDER --background --python build_all.py          # 에셋 → 텍스처 → 렌더 → 아이콘 (M3 기준 ~15분, 하늘 렌더 ~9분)
+$BLENDER --background --python build_all.py          # 에셋 → 별·FX → 텍스처 → 렌더 → 별자리 렌더 → 아이콘
 ./make_icon_set.sh                                   # 아이콘 세트 다운스케일 + Docs/images/icon-256.png
 $BLENDER --background --python build_assets.py -- HostOrb Beacon     # USDZ 부분 재생성
+$BLENDER --background --python build_graph_assets.py                 # NodeStars.usdz + FX_*.png
+$BLENDER --background --python render_graph.py                       # 레이아웃 갤러리 + 범례 (Blender/data/*.json)
 $BLENDER --background --python build_textures.py -- --fallback       # numpy 하늘(수 초)
 $BLENDER --background --python build_textures.py -- --derived-only   # 기존 Sky_Dark에서 Sky_Tint·Floor_Grid만
 $BLENDER --background --python render_assets.py -- host_orb theme_dark
 ```
 
-`build_all.py` 플래그: `--skip-assets --skip-textures --skip-renders --skip-icon --fallback-sky`.
+`build_all.py` 플래그: `--skip-assets --skip-graph --skip-textures --skip-renders --skip-graph-renders --skip-icons --fallback-sky`. 별자리 렌더의 입력 JSON은 `cd ConstellateKit && CONSTELLATE_SNAPSHOT_DIR=../Blender/data swift test --filter SnapshotTests`로 다시 만든다.
 
 - **스크립트 목록**:
 
@@ -321,14 +387,17 @@ $BLENDER --background --python render_assets.py -- host_orb theme_dark
 |---|---|
 | `constellate_lib.py` | 공용 헬퍼 — 팔레트, 머티리얼(`Core`, `Band0…Band3`, `Shell`, `Accent`, `Glass`, `Base`), 프리미티브, USDZ 내보내기+검증, PNG 작성(zlib), Cycles/Metal 설정, 글레어, 카메라 프레이밍 |
 | `build_assets.py` | `Resources/Assets3D/{HostOrb,ClusterOrb,Avatar_Bust,Beacon,ReviewPin,Stage_Ring,Pointer_Dart}.usdz` |
-| `build_textures.py` | `Resources/Textures/{Sky_Dark,Sky_Tint,Floor_Grid}.png` (`--fallback`, `--derived-only`) |
+| `build_graph_assets.py` | `Resources/Assets3D/NodeStars.usdz` + `Resources/Textures/FX_{Glow,Spark,Ring,Beam,EdgeRamp,CardGlow}.png` (`--stars-only`, `--fx-only`) |
+| `build_textures.py` | `Resources/Textures/{Sky_Dark,Sky_Tint,Floor_Grid}.png` (`--fallback`, `--derived-only`, `--sky-only`, `--floor-only`) |
+| `render_graph.py` | `Blender/renders/{layout_<style>,layout_celestial_eye,layout_gallery,node_stars,relation_legend}.png` + README 히어로 `Docs/images/hero.png` (`--quick`, `--eye`, `--gallery`, `--stars`, `--legend`, `--hero`) |
 | `render_assets.py` | `Blender/renders/{host_orb,cluster_orb,avatar_bust,beacon,review_pin,stage_ring,pointer_dart,theme_dark,theme_tinted_ocean,asset_sheet}.png` + `AppIcon-1024.png` (`--icon-only`) |
 | `build_all.py` | 위 전부 순서 실행 (`--skip-*`, `--fallback-sky`) |
 | `make_icon_set.sh` | `icon_16 … icon_1024.png`(appiconset) + `Docs/images/icon-256.png` (sips) |
 | `README.md` | 파이프라인 문서 |
 
 - **내보내기 설정**: Blender Z-up 미터로 제작 → `convert_orientation`(up **Y**, forward **−Z**; 루트 `Xform`에 `rotateXYZ(−90,0,0)`), 스테이지 메타 `upAxis = Y`, `metersPerUnit = 1`. `triangulate_meshes=True`, `export_materials=True`, `generate_preview_surface=True` → `UsdPreviewSurface`, emission 강도는 `emissiveColor`에 베이크. **Blender 5.2는 Principled Alpha 소켓을 무시**(transmission → opacity만 매핑)하므로 `export_usdz()`가 번들 `pxr`로 패키지를 다시 열어 반투명 머티리얼에 `inputs:opacity`를 쓰고 `UsdUtils.CreateNewUsdzPackage`로 재패키징한다. Transmission은 렌더 전용. 매 USDZ 검증: zip 무결성·`upAxis`·머티리얼·bbox·삼각형 < 20k·크기 < 2 MB, `usdchecker --arkit` 통과.
-- **텍스처**: `Sky_Dark` Cycles 32 샘플, 픽셀 필터 1.0, 디노이즈 OFF(emission-only 월드라 MC 노이즈가 없고 OIDN이 별을 뭉갬). `Sky_Tint` 8×8 블록 평균 정규화 그레이스케일. `Floor_Grid` straight-alpha, 컬러 매니지먼트 없음.
+- **텍스처**: `Sky_Dark` Cycles 12 샘플(가우시안 별 프로파일이라 AA 샘플이 적어도 됨), 픽셀 필터 1.0, 디노이즈 OFF(emission-only 월드라 MC 노이즈가 없고 OIDN이 별을 뭉갬). `Sky_Tint` 8×8 블록 평균 정규화 그레이스케일. `Floor_Grid` straight-alpha, 거리 기반 해석적 안티앨리어싱, 컬러 매니지먼트 없음.
+- **FX 스프라이트**: 방사 평면 + `Field` 수식(가우시안·지수 꼬리·둥근 사각형 SDF) → Cycles 직교 카메라 → 선형 EXR → `RGB = 255, A = 필드` PNG. 뷰 트랜스폼이 끼지 않아 수식 = 알파.
 - **렌더**: Cycles on Metal 64 샘플, OIDN, AgX, 컴포지터 Bloom, 1280×960. 월드 = `Sky_Dark.png`(dark) / `Sky_Tint.png × HSL(210,0.34,0.17)`(ocean), 바닥 = 그리드 텍스처 emissive `#2A3150`.
 - **MCP 노트**: 이번 세션(2026-10-19)에는 Blender MCP 서버가 연결되지 않아 전부 CLI로 생성했다. 스크립트는 `sys.argv` 없이도 상수 기본값으로 동작하므로 MCP가 연결되면 같은 본문을 `execute_blender_code`로 실행할 수 있고, 두 경로의 산출물은 동일해야 한다(교차 검증은 TASKS T7.6).
 - 실패 시 앱은 §9 폴백 메시로 진행하므로 에셋은 빌드 차단 요소가 아니다.

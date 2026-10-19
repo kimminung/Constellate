@@ -107,6 +107,10 @@ public enum ConstellateMessage: Codable, Sendable, Hashable {
     case tour(LearningTour)
     case tourStep(Int)
     case followHost(Bool)
+    /// Host switched the layout style (everyone stands in the same constellation shape).
+    case layoutStyle(LayoutStyle)
+    /// Host switched which relations are drawn (off / focus / all).
+    case relationMode(RelationDisplayMode)
 }
 
 /// Lightweight deterministic checksum for graph digests (FNV-1a 64).

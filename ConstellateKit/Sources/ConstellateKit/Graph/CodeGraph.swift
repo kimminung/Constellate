@@ -74,6 +74,9 @@ public struct CodeNode: Identifiable, Hashable, Codable, Sendable {
     public var layer: ArchitectureLayer
     /// Free-form tags from the extractor: "SwiftUI.View", "@Observable", "actor", "test", "entry-point" …
     public var tags: Set<String>
+    /// What the file / type is for (App, View, Model, Service …), inferred by `RelationClassifier.inferRole`.
+    /// `nil` for folders, the module and members. Optional so graphs encoded before roles existed still decode.
+    public var role: CodeRole?
 
     public init(
         id: NodeID,
@@ -86,7 +89,8 @@ public struct CodeNode: Identifiable, Hashable, Codable, Sendable {
         lineCount: Int = 0,
         modifiedAt: Date? = nil,
         layer: ArchitectureLayer = .unknown,
-        tags: Set<String> = []
+        tags: Set<String> = [],
+        role: CodeRole? = nil
     ) {
         self.id = id
         self.name = name
@@ -99,6 +103,7 @@ public struct CodeNode: Identifiable, Hashable, Codable, Sendable {
         self.modifiedAt = modifiedAt
         self.layer = layer
         self.tags = tags
+        self.role = role
     }
 }
 
@@ -115,12 +120,16 @@ public struct CodeEdge: Hashable, Codable, Sendable {
     public var to: NodeID
     public var kind: EdgeKind
     public var weight: Float
+    /// What the edge means (composes / presents / binds / creates …). `nil` = not classified; use `semantic`,
+    /// which falls back to `RelationKind.fallback(for: kind)`. Optional so older encodings still decode.
+    public var relation: RelationKind?
 
-    public init(from: NodeID, to: NodeID, kind: EdgeKind, weight: Float = 1) {
+    public init(from: NodeID, to: NodeID, kind: EdgeKind, weight: Float = 1, relation: RelationKind? = nil) {
         self.from = from
         self.to = to
         self.kind = kind
         self.weight = weight
+        self.relation = relation
     }
 }
 

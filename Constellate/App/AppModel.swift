@@ -33,6 +33,10 @@ final class AppModel {
 
     private(set) var graph: CodeGraph
     private(set) var layout: ConstellationLayout
+    /// File-level dependency analysis (fan-in/out, cycles, impact) for the inspector, stars and cycle highlights.
+    private(set) var insights: GraphInsights
+    /// Relation edges per kind in the whole graph (legend counts).
+    private(set) var relationTotals: [RelationKind: Int] = [:]
     private(set) var clusters: [CodeCluster] = []
     private(set) var granularity: ClusterGranularity = .file
     /// Bumped whenever graph/layout/clusters are replaced so viewports rebuild the entity tree.
@@ -46,6 +50,14 @@ final class AppModel {
 
     private(set) var theme: ConstellateTheme = .dark
     private(set) var timeDial: Float = 0
+    /// Shape of the constellation (persisted). Changing it re-lays out the graph and rebuilds the scene.
+    private(set) var layoutStyle: LayoutStyle
+    /// Which relations are drawn — off / focus (selection only) / all — the portfolio's `L` cycle (persisted).
+    private(set) var relationMode: RelationDisplayMode
+    /// Relation kinds switched off in the legend (persisted).
+    private(set) var hiddenRelations: Set<RelationKind>
+    /// Bumped when `relationMode` / `hiddenRelations` change so viewports push them to their controllers.
+    private(set) var relationRevision = 0
     var selectedNodeID: NodeID?
     var highlightedNodeIDs: Set<NodeID> = []
     private(set) var beacons: [NodeID] = []
@@ -134,6 +146,12 @@ final class AppModel {
     private let router = VoiceCommandRouter()
     private var speakingTask: Task<Void, Never>?
     private var accessedURL: URL?
+    /// Generation counters for background work. A result is applied only when no newer request — or a newer
+    /// graph — arrived while it was computing; otherwise a slow layout of the previous project could land on the
+    /// new one (placements that match no node = an empty sky).
+    private var installGeneration = 0
+    private var layoutGeneration = 0
+    private var clusterGeneration = 0
 
     // MARK: - Init
 
@@ -141,9 +159,15 @@ final class AppModel {
         let defaults = UserDefaults.standard
         speakReplies = defaults.object(forKey: "speakReplies") == nil ? true : defaults.bool(forKey: "speakReplies")
         screenshotMode = defaults.bool(forKey: "screenshotMode")
+        let style = defaults.string(forKey: AppModel.layoutStyleKey).flatMap(LayoutStyle.init(rawValue:)) ?? .appDefault
+        layoutStyle = style
+        relationMode = defaults.string(forKey: AppModel.relationModeKey).flatMap(RelationDisplayMode.init(rawValue:)) ?? .all
+        hiddenRelations = Set((defaults.stringArray(forKey: AppModel.hiddenRelationsKey) ?? []).compactMap(RelationKind.init(rawValue:)))
         let sample = SampleGraph.orbitNotes()
         graph = sample
-        layout = ConstellationLayoutEngine().layout(sample)
+        layout = ConstellationLayoutEngine(style: style).layout(sample)
+        insights = GraphInsights(graph: sample)
+        relationTotals = AppModel.countRelations(sample)
         let local = Participant(id: .local(), displayName: Self.deviceUserName(), role: .host, hueOffset: 0, isLocal: true)
         localParticipant = local
         participants = [local]
@@ -168,6 +192,10 @@ final class AppModel {
         hostTranscript.append(TranscriptEntry(role: .system, text: "Host ready · \(hostAI.backend.label)"))
     }
 
+    private static let layoutStyleKey = "layoutStyle"
+    private static let relationModeKey = "relationMode"
+    private static let hiddenRelationsKey = "hiddenRelations"
+
     private static func deviceUserName() -> String {
 #if os(macOS)
         let name = ProcessInfo.processInfo.fullUserName
@@ -181,13 +209,15 @@ final class AppModel {
 
     func loadSample() {
         releaseProjectAccess()
-        Task { await install(graph: SampleGraph.orbitNotes(), projectRoot: nil) }
+        let token = beginInstall()
+        Task { await install(graph: SampleGraph.orbitNotes(), projectRoot: nil, token: token) }
     }
 
     /// Opens a folder picked by the user. Keeps security-scoped access alive so cards can read source later.
     func openProject(url: URL) async {
         guard !isIngesting else { return }
         releaseProjectAccess()
+        let token = beginInstall()
         let accessing = url.startAccessingSecurityScopedResource()
         if accessing { accessedURL = url }
         isIngesting = true
@@ -196,15 +226,24 @@ final class AppModel {
         do {
             let ingested = try await ProjectIngestor().ingest(rootURL: url) { [weak self] progress in
                 guard progress.filesSeen % 20 == 0 else { return }
-                Task { @MainActor in self?.ingestProgress = progress }
+                // Re-capture weakly: the outer closure runs off the main actor, so it must not share its `self` var.
+                Task { @MainActor [weak self] in self?.ingestProgress = progress }
             }
-            await install(graph: ingested, projectRoot: url)
-            statusMessage = "\(ingested.projectName): \(ingested.fileCount) files, \(ingested.totalLines) lines"
+            if await install(graph: ingested, projectRoot: url, token: token) {
+                statusMessage = "\(ingested.projectName): \(ingested.fileCount) files, \(ingested.totalLines) lines"
+            }
         } catch {
-            statusMessage = error.localizedDescription
+            // Superseded (the sample was loaded meanwhile, which also ended this folder's access): stay quiet.
+            if token == installGeneration { statusMessage = error.localizedDescription }
         }
         isIngesting = false
         ingestProgress = nil
+    }
+
+    /// Every project request (open / sample) takes a token; only the newest request is ever installed.
+    private func beginInstall() -> Int {
+        installGeneration += 1
+        return installGeneration
     }
 
     private func releaseProjectAccess() {
@@ -212,13 +251,23 @@ final class AppModel {
         accessedURL = nil
     }
 
-    private func install(graph newGraph: CodeGraph, projectRoot: URL?) async {
+    /// Lays out, clusters and analyses `newGraph` off the main actor, then swaps it in. Returns false (and changes
+    /// nothing) when a newer project request arrived meanwhile — the newer one wins.
+    @discardableResult
+    private func install(graph newGraph: CodeGraph, projectRoot: URL?, token: Int) async -> Bool {
         let gran = granularity
-        let (newLayout, newClusters) = await Task.detached(priority: .userInitiated) {
-            (ConstellationLayoutEngine().layout(newGraph), ClusterBuilder().clusters(from: newGraph, granularity: gran))
+        let style = layoutStyle
+        let (newLayout, newClusters, newInsights) = await Task.detached(priority: .userInitiated) {
+            (ConstellationLayoutEngine(style: style).layout(newGraph), ClusterBuilder().clusters(from: newGraph, granularity: gran), GraphInsights(graph: newGraph))
         }.value
+        guard token == installGeneration else { return false }
+        // Relayouts / reclusters still computing were started for the previous graph: drop them.
+        layoutGeneration += 1
+        clusterGeneration += 1
         graph = newGraph
         layout = newLayout
+        insights = newInsights
+        relationTotals = Self.countRelations(newGraph)
         clusters = newClusters
         stats = newGraph.stats()
         projectRootURL = projectRoot
@@ -231,25 +280,110 @@ final class AppModel {
         tour = nil
         pins = []
         sceneRevision += 1
+        // The layout style or cluster granularity may have changed while this graph was being laid out.
+        if style != layoutStyle { relayout() }
+        if gran != granularity { recluster() }
         if session.isHost {
             session.send(.graphDigest(projectName: newGraph.projectName, nodeCount: newGraph.nodes.count, checksum: GraphDigest.checksum(newGraph)))
         }
+        return true
     }
 
+    /// Recomputes the layout for the current graph and style; only the newest request is applied.
     func relayout() {
-        let g = graph
+        layoutGeneration += 1
+        let token = layoutGeneration, g = graph, style = layoutStyle
         Task {
-            layout = await Task.detached(priority: .userInitiated) { ConstellationLayoutEngine().layout(g) }.value
+            let newLayout = await Task.detached(priority: .userInitiated) { ConstellationLayoutEngine(style: style).layout(g) }.value
+            // A newer style request — or a new graph — landed while this one was computing.
+            guard token == layoutGeneration else { return }
+            layout = newLayout
             sceneRevision += 1
         }
+    }
+
+    // MARK: - Layout style / relations
+
+    func setLayoutStyle(_ style: LayoutStyle, broadcast: Bool = true) {
+        guard style != layoutStyle else { return }
+        layoutStyle = style
+        UserDefaults.standard.set(style.rawValue, forKey: Self.layoutStyleKey)
+        relayout()
+        if broadcast && session.isHost { session.send(.layoutStyle(style)) }
+    }
+
+    func setRelationMode(_ mode: RelationDisplayMode, broadcast: Bool = true) {
+        guard mode != relationMode else { return }
+        relationMode = mode
+        UserDefaults.standard.set(mode.rawValue, forKey: Self.relationModeKey)
+        relationRevision += 1
+        if broadcast && session.isHost { session.send(.relationMode(mode)) }
+    }
+
+    /// off → focus → all → off (the portfolio's `L` key).
+    func cycleRelationMode() {
+        setRelationMode(relationMode.next)
+        showToast("Relations · 관계: \(relationMode.label)")
+    }
+
+    /// Legend toggle for one relation kind (local: each participant filters their own view).
+    func toggleRelation(_ kind: RelationKind) {
+        if hiddenRelations.contains(kind) { hiddenRelations.remove(kind) } else { hiddenRelations.insert(kind) }
+        UserDefaults.standard.set(hiddenRelations.map(\.rawValue).sorted(), forKey: Self.hiddenRelationsKey)
+        relationRevision += 1
+    }
+
+    func showAllRelations() {
+        guard !hiddenRelations.isEmpty else { return }
+        hiddenRelations = []
+        UserDefaults.standard.set([String](), forKey: Self.hiddenRelationsKey)
+        relationRevision += 1
+    }
+
+    /// Relation edges per kind in the whole graph (legend counts).
+    private static func countRelations(_ graph: CodeGraph) -> [RelationKind: Int] {
+        var counts: [RelationKind: Int] = [:]
+        for e in graph.edges { if let rel = e.semantic { counts[rel, default: 0] += 1 } }
+        return counts
+    }
+
+    /// Coupling numbers for the inspector (Martin metrics on the node's file).
+    func metrics(for id: NodeID) -> NodeMetrics { insights.metrics(for: id) }
+
+    /// The node's relations grouped by kind and direction (members folded into it).
+    func relationGroups(for id: NodeID) -> [RelationGroup] { RelationDigest.groups(for: id, in: graph) }
+
+    /// One-paragraph digest for the host's prompt: role, coupling, cycle and the most informative relations — the
+    /// same facts the constellation encodes visually, so the host can talk about what the person is looking at.
+    func relationSummary(for id: NodeID) -> String {
+        guard let node = graph.node(id) else { return "" }
+        var parts: [String] = []
+        if let role = node.role, !role.style.label.isEmpty { parts.append("Its role is \(role.style.label).") }
+        let m = insights.metrics(for: id)
+        if m.fanIn + m.fanOut > 0 { parts.append("\(m.fanIn) files depend on its file and it depends on \(m.fanOut).") }
+        if m.cycleIndex != nil { parts.append("Its file is part of a dependency cycle.") }
+        let informative = relationGroups(for: id).filter { $0.relation != .uses && $0.relation != .imports }.prefix(5)
+        for group in informative {
+            let names = group.nodes.prefix(4).compactMap { graph.node($0)?.name }.joined(separator: ", ")
+            parts.append("\(group.relation.style.labelEn) \(group.outgoing ? "→" : "←") \(names)\(group.total > 4 ? " (+\(group.total - 4))" : "").")
+        }
+        return parts.joined(separator: " ")
     }
 
     func setGranularity(_ value: ClusterGranularity) {
         guard value != granularity else { return }
         granularity = value
-        let g = graph
+        recluster()
+    }
+
+    /// Rebuilds the cluster orbs for the current graph and granularity; only the newest request is applied.
+    private func recluster() {
+        clusterGeneration += 1
+        let token = clusterGeneration, g = graph, value = granularity
         Task {
-            clusters = await Task.detached(priority: .userInitiated) { ClusterBuilder().clusters(from: g, granularity: value) }.value
+            let newClusters = await Task.detached(priority: .userInitiated) { ClusterBuilder().clusters(from: g, granularity: value) }.value
+            guard token == clusterGeneration else { return }
+            clusters = newClusters
             dockedClusterID = nil
             sceneRevision += 1
         }
@@ -364,7 +498,11 @@ final class AppModel {
         beginThinking()
         var situation: [String] = []
         if let docked = dockedCluster { situation.append("The host orb is docked in cluster \"\(docked.title)\" (id \(docked.id)); prefer answers about it.") }
-        if let selected = selectedNodeID, let node = graph.node(selected) { situation.append("The person has \(node.name) (id \(selected.raw)) selected.") }
+        if let selected = selectedNodeID, let node = graph.node(selected) {
+            situation.append("The person has \(node.name) (id \(selected.raw)) selected.")
+            let digest = relationSummary(for: selected)
+            if !digest.isEmpty { situation.append(digest) }
+        }
         // Streaming: one host bubble is created up front and filled in as tokens arrive.
         let entryID = beginHostEntry()
         let reply = await hostAI.streamChat(trimmed, situation: situation.joined(separator: " "), graph: graph, clusters: clusters, docked: dockedCluster) { [weak self] partial in
@@ -526,7 +664,7 @@ final class AppModel {
     func setTour(_ newTour: LearningTour?, broadcast: Bool) {
         tour = newTour
         currentStep = 0
-        if let newTour { setMeetingMode(.lecture, broadcast: broadcast) }
+        if newTour != nil { setMeetingMode(.lecture, broadcast: broadcast) }
         if broadcast && session.isHost, let newTour { session.send(.tour(newTour)) }
     }
 

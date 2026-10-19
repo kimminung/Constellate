@@ -76,6 +76,7 @@ struct ConstellationViewport: View {
             }
         }
         .onChange(of: model.highlightedNodeIDs) { controller.setHighlights(model.highlightedNodeIDs) }
+        .onChange(of: model.relationRevision) { controller.setRelationOptions(mode: model.relationMode, hidden: model.hiddenRelations) }
         .onChange(of: model.beacons) { controller.setBeacons(model.beacons, pinned: model.pinnedBeacons) }
         .onChange(of: model.pinnedBeacons) { controller.setBeacons(model.beacons, pinned: model.pinnedBeacons) }
         .onChange(of: model.summonedNodeID) { controller.setSummoned(model.summonedNodeID) }
@@ -112,13 +113,16 @@ struct ConstellationViewport: View {
     }
 
     private func rebuild() {
-        controller.rebuild(graph: model.graph, layout: model.layout, clusters: model.clusters, theme: model.theme, timeDial: model.timeDial, projectRoot: model.projectRootURL)
+        controller.setRelationOptions(mode: model.relationMode, hidden: model.hiddenRelations)
+        controller.rebuild(graph: model.graph, layout: model.layout, clusters: model.clusters, theme: model.theme, timeDial: model.timeDial,
+                           projectRoot: model.projectRootURL, insights: model.insights)
         controller.setSelection(model.selectedNodeID)
         controller.setHighlights(model.highlightedNodeIDs)
         controller.setPins(model.pins)
-        let extents = model.layout.boundsMax - model.layout.boundsMin
-        rig.distance = OrbitCameraRig.clampDistance(max(4, max(extents.x, extents.z) * 0.9))
-        rig.frame([0, 1.3, 0])
+        // Frame the whole structure: every layout style has its own extent and centre (a wall, a dome, a helix…).
+        let sphere = model.layout.boundingSphere
+        rig.distance = OrbitCameraRig.clampDistance(max(4, sphere.radius * 1.45))
+        rig.frame([sphere.center.x, min(max(sphere.center.y, 1.0), 2.4), sphere.center.z])
     }
 
     private func tick(_ deltaTime: TimeInterval) {

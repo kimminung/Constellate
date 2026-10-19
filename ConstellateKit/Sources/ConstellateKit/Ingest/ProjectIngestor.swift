@@ -139,16 +139,20 @@ public struct ProjectIngestor: Sendable {
 
                 var extracted: ExtractedFile? = nil
                 var lineCount = 0
+                let rolePath = moduleName + "/" + relative
+                var role: CodeRole
                 if let language, options.symbolLanguages.contains(language),
                    let source = ProjectIngestor.readSource(at: file.url) {
                     let e = extractor.extract(source: source)
                     extracted = e
                     lineCount = e.lineCount
                     parsed += 1
+                    role = RelationClassifier.inferRole(path: rolePath, language: language, source: source, symbols: e.symbols)
                 } else {
                     lineCount = ProjectIngestor.countLines(at: file.url)
+                    role = RelationClassifier.inferRole(path: rolePath, language: language ?? ext, source: nil)
                 }
-                builder.addFile(components: file.components, language: language ?? ext, lineCount: lineCount, modifiedAt: file.modifiedAt, extracted: extracted)
+                builder.addFile(components: file.components, language: language ?? ext, lineCount: lineCount, modifiedAt: file.modifiedAt, extracted: extracted, role: role)
 
                 if (index + 1) % 25 == 0 {
                     progress?(IngestProgress(filesSeen: index + 1, filesParsed: parsed, currentPath: relative))
@@ -218,7 +222,14 @@ public struct ProjectIngestor: Sendable {
         /// Pending relations resolved in `finish()`.
         private var pendingImports: [(file: NodeID, module: String)] = []
         private var pendingInherits: [(type: NodeID, superName: String)] = []
-        private var pendingReferences: [(file: NodeID, typeName: String)] = []
+        private var pendingReferences: [(file: NodeID, typeName: String, fact: ReferenceFact)] = []
+        /// `extension Foo` declarations → `extends` edges to `Foo` when it is declared in another file.
+        private var pendingExtends: [(extensionNode: NodeID, typeName: String)] = []
+        /// NotificationCenter names → posting / observing files (`notifies` edges).
+        private var notificationPosters: [String: Set<NodeID>] = [:]
+        private var notificationObservers: [String: Set<NodeID>] = [:]
+        /// Role per file / type node (target roles decide composes vs creates).
+        private var roles: [NodeID: CodeRole] = [:]
         /// Newest modification date per folder (propagated upward).
         private var folderDates: [NodeID: Date] = [:]
 
@@ -249,7 +260,7 @@ public struct ProjectIngestor: Sendable {
             return id
         }
 
-        mutating func addFile(components: [String], language: String, lineCount: Int, modifiedAt: Date?, extracted: ExtractedFile?) {
+        mutating func addFile(components: [String], language: String, lineCount: Int, modifiedAt: Date?, extracted: ExtractedFile?, role: CodeRole? = nil) {
             // Folders
             var parentID = NodeID(moduleName)
             var pathSoFar = moduleName
@@ -278,16 +289,22 @@ public struct ProjectIngestor: Sendable {
             let baseName = (fileName as NSString).deletingPathExtension
             if baseName.hasSuffix("Tests") || baseName.hasSuffix("Test") { fileTags.insert("test") }
             let relativePath = components.joined(separator: "/")
+            let fileRole = role ?? RelationClassifier.inferRole(path: filePath, language: language, source: nil)
             let fileNode = CodeNode(
                 id: fileID, name: fileName, kind: .file, path: filePath, parent: parentID, language: language,
                 lines: lineCount > 0 ? LineRange(start: 1, end: lineCount) : nil, lineCount: lineCount, modifiedAt: modifiedAt,
-                layer: ProjectIngestor.inferLayer(path: relativePath, tags: fileTags), tags: fileTags
+                layer: ProjectIngestor.inferLayer(path: relativePath, tags: fileTags), tags: fileTags, role: fileRole
             )
             append(fileNode)
+            roles[fileID] = fileRole
             guard let extracted else { return }
 
             for module in extracted.imports { pendingImports.append((fileID, module)) }
-            for name in extracted.referencedTypeNames { pendingReferences.append((fileID, name)) }
+            for name in extracted.referencedTypeNames.sorted() {
+                pendingReferences.append((fileID, name, extracted.referenceFacts[name] ?? .mentions))
+            }
+            for name in extracted.postedNotifications { notificationPosters[name, default: []].insert(fileID) }
+            for name in extracted.observedNotifications { notificationObservers[name, default: []].insert(fileID) }
 
             // Symbols: types / extensions first (they may be parents), then members.
             var typeIDByName: [String: NodeID] = [:]
@@ -318,19 +335,30 @@ public struct ProjectIngestor: Sendable {
                 let id = uniqueID(base)
                 var tags = symbol.tags
                 if fileTags.contains("test") && symbol.kind != .extension { tags.insert("test") }
+                let typeRole = RelationClassifier.role(forType: tags, kind: symbol.kind, fileRole: fileRole)
                 let node = CodeNode(
                     id: id, name: symbol.name, kind: symbol.nodeKind, path: filePath, parent: parentNode, language: language,
-                    lines: symbol.lines, lineCount: symbol.lines.count, modifiedAt: modifiedAt, layer: symbolLayer(tags), tags: tags
+                    lines: symbol.lines, lineCount: symbol.lines.count, modifiedAt: modifiedAt, layer: symbolLayer(tags), tags: tags,
+                    role: typeRole
                 )
                 append(node)
+                roles[id] = typeRole
                 // Types always own their name; extensions only register it when no type of that name is in the file.
                 // Members of `extension Foo` therefore attach to `Foo` when it is declared here, otherwise to the extension.
+                let extendsLocalType = symbol.kind == .extension && typeIDByName[symbol.name] != nil
                 if symbol.kind != .extension || typeIDByName[symbol.name] == nil {
                     typeIDByName[symbol.name] = id
                 }
                 if symbol.kind != .extension {
                     typesByName[symbol.name, default: []].append(id)
                     for superName in symbol.inherits { pendingInherits.append((id, superName)) }
+                } else {
+                    // `extension Foo: Bar` adds conformances; `extension Foo` of a type declared elsewhere is an `extends` edge.
+                    for superName in symbol.inherits { pendingInherits.append((id, superName)) }
+                    if !extendsLocalType {
+                        let base = symbol.name.split(separator: ".").last.map(String.init) ?? symbol.name
+                        pendingExtends.append((id, base))
+                    }
                 }
             }
 
@@ -366,32 +394,55 @@ public struct ProjectIngestor: Sendable {
             var fileTagAdditions: [NodeID: Set<String>] = [:]
             for (file, module) in pendingImports {
                 if let target = topLevel[module], target != file {
-                    addEdge(CodeEdge(from: file, to: target, kind: .imports))
+                    addEdge(CodeEdge(from: file, to: target, kind: .imports, relation: .imports))
                 } else {
                     fileTagAdditions[file, default: []].insert("imports:\(module)")
                 }
             }
 
-            // Inherits: prefer a type declared in the same folder.
+            // Inherits: prefer a type declared in the same folder. Delegate / DataSource supertypes are `delegates`.
             var folderOf: [NodeID: String] = [:]
+            var pathOf: [NodeID: String] = [:]
             for n in nodes where n.kind == .type || n.kind == .extensionDecl {
                 folderOf[n.id] = (n.path as NSString).deletingLastPathComponent
+                pathOf[n.id] = n.path
             }
+            /// file id → types it already inherits from / extends (those names are not also drawn as plain references).
+            var typeLinkedTargets: [NodeID: Set<NodeID>] = [:]
             for (type, superName) in pendingInherits {
                 if let target = resolveType(named: superName, near: folderOf[type], excluding: type) {
-                    addEdge(CodeEdge(from: type, to: target, kind: .inherits))
+                    addEdge(CodeEdge(from: type, to: target, kind: .inherits, relation: RelationClassifier.inheritanceRelation(superName: superName)))
+                    if let path = pathOf[type] { typeLinkedTargets[NodeID(path), default: []].insert(target) }
                 } else {
                     fileTagAdditions[type, default: []].insert("inherits:\(superName)")
                 }
             }
+            // Extends: `extension Foo` → `Foo` declared in another file.
+            for (ext, typeName) in pendingExtends {
+                guard let target = resolveType(named: typeName, near: folderOf[ext], excluding: ext), pathOf[target] != pathOf[ext] else { continue }
+                addEdge(CodeEdge(from: ext, to: target, kind: .inherits, relation: .extends))
+                if let path = pathOf[ext] { typeLinkedTargets[NodeID(path), default: []].insert(target) }
+            }
 
-            // References: file → type in another file.
+            // References: file → type in another file, classified (binds / presents / composes / creates / uses).
             var fileOfNode: [NodeID: String] = [:]
             for n in nodes where n.kind == .type { fileOfNode[n.id] = n.path }
-            for (file, typeName) in pendingReferences {
+            for (file, typeName, fact) in pendingReferences {
                 guard let target = resolveType(named: typeName, near: (file.raw as NSString).deletingLastPathComponent, excluding: nil) else { continue }
                 if fileOfNode[target] == file.raw { continue }
-                addEdge(CodeEdge(from: file, to: target, kind: .references, weight: 1))
+                if typeLinkedTargets[file]?.contains(target) == true { continue }
+                let relation = RelationClassifier.relation(for: fact, sourceRole: roles[file], targetRole: roles[target])
+                addEdge(CodeEdge(from: file, to: target, kind: .references, weight: 1, relation: relation))
+            }
+
+            // Notifications: every poster → every observer of the same name (runtime coupling, kind `.calls`).
+            for name in notificationPosters.keys.sorted() {
+                guard let observers = notificationObservers[name] else { continue }
+                for poster in notificationPosters[name, default: []].sorted(by: { $0.raw < $1.raw }) {
+                    for observer in observers.sorted(by: { $0.raw < $1.raw }) where observer != poster {
+                        addEdge(CodeEdge(from: poster, to: observer, kind: .calls, relation: .notifies))
+                    }
+                }
             }
 
             for (i, n) in nodes.enumerated() {
