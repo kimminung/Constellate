@@ -1,0 +1,15 @@
+{
+  "name": "constellate-readme-videos",
+  "version": "1.0.0",
+  "description": "Director pages for the Constellate README videos (three.js scenes + macOS window replica)",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "lucide-static": "0.462.0",
+    "pretendard": "1.3.9",
+    "three": "0.170.0"
+  },
+  "private": true
+}

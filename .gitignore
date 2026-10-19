@@ -24,3 +24,14 @@ __pycache__/
 
 # accidental relative-path cache dir
 **/~/
+
+# README videos: generated / downloaded inputs of Docs/video/src
+Docs/video/src/web/node_modules/
+Docs/video/src/web/assets/tex/
+Docs/video/src/web/assets/glb/
+Docs/video/src/web/assets/img/screenshot-visionos-dashboard.png
+Docs/video/src/web/assets/img/icon-256.png
+Docs/video/src/web/assets/img/node_stars.png
+Docs/video/src/audio/models/
+Docs/video/*.mkv
+Docs/video/stills/

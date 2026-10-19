@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<title>Constellate — 사용법</title>
+<link rel="stylesheet" href="node_modules/pretendard/dist/web/static/pretendard.css">
+<link rel="stylesheet" href="css/usage.css">
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+</head><body>
+<div id="stage">
+  <div id="cam">
+    <div id="desk"></div>
+    <div id="win">
+      <div id="sidebar">
+        <div class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+        <div class="sbtoggle"><span data-ic="panel-left"></span></div>
+        <div class="search"><span data-ic="search" class="mg"></span><span class="ph">Find code · 찾기</span></div>
+        <div id="outline"></div>
+      </div>
+      <div id="tbar"></div>
+      <div id="toolbar"></div>
+      <div id="content">
+        <div id="canvashost"><canvas id="c"></canvas></div>
+        <div id="toast"></div>
+        <div id="pointerlbl"><span data-ic="crosshair"></span>Pointer · 포인터</div>
+        <div id="bottom"><div id="tourbar"></div><div id="hud"></div></div>
+      </div>
+      <div id="inspector"><div id="insp"></div></div>
+      <div id="menus"></div>
+      <div id="sheet"></div>
+    </div>
+    <div id="facetime"></div>
+    <div id="rings"></div>
+    <div id="cursor"><svg viewBox="0 0 28 40" width="28" height="40"><path d="M3 2 L3 31 L10 24.5 L14.6 35.2 L19.6 33.1 L15.2 22.6 L24.4 22.4 Z" fill="#111" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/></svg><i class="press"></i></div>
+  </div>
+  <div id="vision"><div id="vroom"><img src="assets/img/screenshot-visionos-dashboard.png"><div class="gaze"></div><div class="pinch"></div></div></div>
+  <div id="fullhost"></div>
+  <div id="voicecap"><span class="mic" data-ic="mic"></span><span class="bars"></span><span class="txt"></span></div>
+  <div id="keycaps"><div class="keys"></div><div class="lbl"></div></div>
+  <div id="chapter"><b></b><span class="ko"></span><span class="en"></span></div>
+  <div id="capband"></div>
+  <div id="caption"><span></span></div>
+  <div id="titlecard"><div class="row"><img src="assets/img/hero_icon.png" class="icon"><div><div class="k">How to use</div><div class="t">Constellate 사용법</div></div></div></div>
+  <div id="endcard">
+    <div class="row"><img src="assets/img/hero_icon.png" class="icon"><img src="assets/img/hero_wordmark.png" class="wordmark"></div>
+    <div class="ko">여러분의 프로젝트로 별자리를 만들어 보세요</div>
+    <div class="url">github.com/kimminung/Constellate</div>
+  </div>
+  <div id="black"></div>
+</div>
+<script src="data/graph.js"></script>
+<script src="data/tl_usage.js"></script>
+<script src="data/icons.js"></script>
+<script type="module" src="js/usage.js"></script>
+</body></html>

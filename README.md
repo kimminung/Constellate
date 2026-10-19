@@ -17,6 +17,22 @@ Constellate turns a whole project into a multi-dimensional "code constellation" 
   <img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="Apache-2.0"/>
 </p>
 
+
+## Videos
+
+<table>
+  <tr>
+    <td align="center" width="50%"><a href="Docs/video/constellate-intro.mp4"><img src="Docs/video/constellate-intro.gif" alt="Constellate intro — highlight loop; click for the narrated MP4"/></a><br/><sub><b>Intro · 앱 소개</b> · 1:43 · <a href="Docs/video/constellate-intro.mp4">MP4</a></sub></td>
+    <td align="center" width="50%"><a href="Docs/video/constellate-howto.mp4"><img src="Docs/video/constellate-howto.gif" alt="How to use Constellate — highlight loop; click for the narrated MP4"/></a><br/><sub><b>How to use · 사용법</b> · 2:04 · <a href="Docs/video/constellate-howto.mp4">MP4</a></sub></td>
+  </tr>
+</table>
+
+Korean narration and subtitles, original score. The how-to film's Mac window is rebuilt from the SwiftUI source around the Orbit Notes sample (device recordings are still pending) — how both films were made: [Docs/video](Docs/video/README.md).
+
+<!-- Inline players: edit this README on github.com, drag Docs/video/constellate-intro.mp4 and constellate-howto.mp4 onto
+     the line below, and commit. GitHub uploads each file and inserts a https://github.com/user-attachments/assets/… line
+     that plays right here. -->
+
 ---
 
 ## Features

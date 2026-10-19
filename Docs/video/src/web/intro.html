@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<title>Constellate — intro</title>
+<link rel="stylesheet" href="node_modules/pretendard/dist/web/static/pretendard.css">
+<link rel="stylesheet" href="css/overlay.css">
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+</head><body>
+<div id="stage">
+  <canvas id="c"></canvas>
+  <div id="vignette"></div>
+  <div id="fx"></div>
+  <div id="titlescrim"></div>
+
+  <!-- title card -->
+  <div id="title" class="titlecard">
+    <div class="row"><img src="assets/img/hero_icon.png" class="icon"><img src="assets/img/hero_wordmark.png" class="wordmark"></div>
+    <img src="assets/img/hero_tagline.png" class="tagline">
+    <div class="ko">팀이 함께 걷는 코드 별자리 · 온디바이스 AI 호스트</div>
+  </div>
+
+  <!-- scene kicker -->
+  <div id="kicker"><div class="en"></div><div class="ko"></div></div>
+
+  <!-- ingest panel -->
+  <div id="ingest" class="glass">
+    <div class="head"><span class="folder"></span><b>OrbitNotes</b><span class="badge">On-device · 기기 안에서</span></div>
+    <div class="files"></div>
+    <div class="stats"><div><b class="n0">0</b><span>files</span></div><div><b class="n1">0</b><span>types</span></div><div><b class="n2">0</b><span>relations</span></div></div>
+  </div>
+
+  <!-- time dial -->
+  <div id="dial" class="glass"><span class="lbl">Older</span><div class="track"><div class="fill"></div><div class="knob"></div></div><span class="lbl">Newer</span><span class="val">0.00</span></div>
+
+  <!-- legend chips (relations) -->
+  <div id="legend"></div>
+
+  <!-- star callouts -->
+  <div id="starkey" class="glass"></div>
+
+  <!-- layout chip -->
+  <div id="layoutchip"><div class="sym"></div><div class="name"></div><div class="axes"></div></div>
+
+  <!-- host answer / HUD bubble -->
+  <div id="bubble" class="glass"><div class="who"><span class="orbglyph"></span><b></b><i></i></div><div class="txt"></div></div>
+
+  <!-- voice capsule -->
+  <div id="voice" class="glass"><span class="mic"></span><div class="bars"></div><div class="txt"></div></div>
+
+  <!-- tour bar -->
+  <div id="tour" class="glass"></div>
+
+  <!-- privacy chips -->
+  <div id="privacy"></div>
+
+  <!-- end card -->
+  <div id="endcard" class="titlecard">
+    <div class="row"><img src="assets/img/hero_icon.png" class="icon"><img src="assets/img/hero_wordmark.png" class="wordmark"></div>
+    <img src="assets/img/hero_tagline.png" class="tagline">
+    <div class="pills"><span class="p v">visionOS 27</span><span class="p i">iPadOS 27</span><span class="p m">macOS 27</span></div>
+    <div class="url">github.com/kimminung/Constellate</div>
+  </div>
+
+  <div id="caption"><span></span></div>
+  <div id="black"></div>
+</div>
+<script src="data/graph.js"></script>
+<script src="data/tl_intro.js"></script>
+<script type="module" src="js/intro.js"></script>
+</body></html>
