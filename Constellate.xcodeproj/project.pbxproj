@@ -6,6 +6,10 @@
 	objectVersion = 90;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		000000000000000000000201 /* ConstellateKit in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000202 /* ConstellateKit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* Constellate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Constellate.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -17,10 +21,6 @@
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
-
-/* Begin PBXBuildFile section */
-		000000000000000000000201 /* ConstellateKit in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000202 /* ConstellateKit */; };
-/* End PBXBuildFile section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		000000000000000130000000 /* Frameworks */ = {
@@ -159,6 +159,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "Constellate/Constellate-macOS.entitlements";
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -229,6 +230,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "Constellate/Constellate-macOS.entitlements";
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -261,14 +263,32 @@
 		000000000000000111000000 /* Debug configuration for PBXNativeTarget "Constellate" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = Constellate/Constellate.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "Constellate/Constellate-macOS.entitlements";
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5Z8G42AVKD;
 				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				"ENABLE_HARDENED_RUNTIME[sdk=iphoneos*]" = NO;
+				"ENABLE_HARDENED_RUNTIME[sdk=iphonesimulator*]" = NO;
+				"ENABLE_HARDENED_RUNTIME[sdk=xros*]" = NO;
+				"ENABLE_HARDENED_RUNTIME[sdk=xrsimulator*]" = NO;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Constellate;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Constellate listens for voice commands to locate and explain code.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Constellate transcribes your voice on device to find code and ask the host AI.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
@@ -279,45 +299,47 @@
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				INFOPLIST_KEY_CFBundleDisplayName = Constellate;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Constellate listens for voice commands to locate and explain code.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Constellate transcribes your voice on device to find code and ask the host AI.";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				SUPPORTS_MACCATALYST = NO;
 				TARGETED_DEVICE_FAMILY = "2,7";
 				"TARGETED_DEVICE_FAMILY[sdk=macosx*]" = "";
-				ENABLE_USER_SELECTED_FILES = readonly;
-				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
-				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
-				"ENABLE_HARDENED_RUNTIME[sdk=iphoneos*]" = NO;
-				"ENABLE_HARDENED_RUNTIME[sdk=iphonesimulator*]" = NO;
-				"ENABLE_HARDENED_RUNTIME[sdk=xros*]" = NO;
-				"ENABLE_HARDENED_RUNTIME[sdk=xrsimulator*]" = NO;
-				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 			};
 			name = Debug;
 		};
 		000000000000000112000000 /* Release configuration for PBXNativeTarget "Constellate" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = Constellate/Constellate.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "Constellate/Constellate-macOS.entitlements";
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5Z8G42AVKD;
 				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				"ENABLE_HARDENED_RUNTIME[sdk=iphoneos*]" = NO;
+				"ENABLE_HARDENED_RUNTIME[sdk=iphonesimulator*]" = NO;
+				"ENABLE_HARDENED_RUNTIME[sdk=xros*]" = NO;
+				"ENABLE_HARDENED_RUNTIME[sdk=xrsimulator*]" = NO;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Constellate;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Constellate listens for voice commands to locate and explain code.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Constellate transcribes your voice on device to find code and ask the host AI.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MARKETING_VERSION = 1.0;
@@ -327,49 +349,18 @@
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				INFOPLIST_KEY_CFBundleDisplayName = Constellate;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Constellate listens for voice commands to locate and explain code.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Constellate transcribes your voice on device to find code and ask the host AI.";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				SUPPORTS_MACCATALYST = NO;
 				TARGETED_DEVICE_FAMILY = "2,7";
 				"TARGETED_DEVICE_FAMILY[sdk=macosx*]" = "";
-				ENABLE_USER_SELECTED_FILES = readonly;
-				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
-				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
-				"ENABLE_HARDENED_RUNTIME[sdk=iphoneos*]" = NO;
-				"ENABLE_HARDENED_RUNTIME[sdk=iphonesimulator*]" = NO;
-				"ENABLE_HARDENED_RUNTIME[sdk=xros*]" = NO;
-				"ENABLE_HARDENED_RUNTIME[sdk=xrsimulator*]" = NO;
-				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
-
-/* Begin XCLocalSwiftPackageReference section */
-		000000000000000000000203 /* XCLocalSwiftPackageReference "ConstellateKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ConstellateKit;
-		};
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		000000000000000000000202 /* ConstellateKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = ConstellateKit;
-		};
-/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCConfigurationList section */
 		000000000000000010000000 /* Build configuration list for PBXProject "Constellate" */ = {
@@ -389,6 +380,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		000000000000000000000203 /* XCLocalSwiftPackageReference "ConstellateKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ConstellateKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		000000000000000000000202 /* ConstellateKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ConstellateKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 000000000000000000000000 /* Project object */;
 }
