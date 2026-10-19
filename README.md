@@ -22,6 +22,14 @@ Constellate는 프로젝트 전체를 이머시브 공간(visionOS) 또는 Reali
 
 ## 영상
 
+
+https://github.com/user-attachments/assets/d40ddac7-933e-4bdb-ade7-8c2d3a3e634b
+
+
+
+https://github.com/user-attachments/assets/f2b20f89-7dee-4529-a0c7-a5d3a715d37f
+
+
 <table>
   <tr>
     <td align="center" width="50%"><a href="Docs/video/constellate-intro.mp4"><img src="Docs/video/constellate-intro.gif" alt="Constellate 소개 — 하이라이트 루프, 클릭하면 내레이션 MP4"/></a><br/><sub><b>앱 소개</b> · 1:43 · <a href="Docs/video/constellate-intro.mp4">MP4</a></sub></td>
