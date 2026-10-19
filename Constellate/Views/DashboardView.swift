@@ -39,22 +39,22 @@ struct ProjectHeaderView: View {
                 Button {
                     model.showProjectImporter = true
                 } label: {
-                    Label("Open Project · 열기", systemImage: "folder")
+                    Label(L("프로젝트 열기", "Open Project"), systemImage: "folder")
                 }
                 .disabled(model.isIngesting)
-                Button("Sample") { model.loadSample() }
+                Button(L("샘플", "Sample")) { model.loadSample() }
             }
             let s = model.stats
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
-                    StatPill(value: s.fileCount, label: "files")
-                    StatPill(value: s.totalLines, label: "lines")
-                    StatPill(value: s.countsByKind[.type] ?? 0, label: "types")
-                    StatPill(value: s.countsByKind[.function] ?? 0, label: "functions")
-                    StatPill(value: model.clusters.count, label: "orbs")
+                    StatPill(value: s.fileCount, label: L("파일", "files"))
+                    StatPill(value: s.totalLines, label: L("줄", "lines"))
+                    StatPill(value: s.countsByKind[.type] ?? 0, label: L("타입", "types"))
+                    StatPill(value: s.countsByKind[.function] ?? 0, label: L("함수", "functions"))
+                    StatPill(value: model.clusters.count, label: L("오브", "orbs"))
                     Divider().frame(height: 28)
                     ForEach(EdgeKind.allCases.filter { $0 != .contains }, id: \.self) { kind in
-                        StatPill(value: s.countsByEdgeKind[kind] ?? 0, label: kind.rawValue, tint: model.theme.color(for: kind).swiftUIColor)
+                        StatPill(value: s.countsByEdgeKind[kind] ?? 0, label: kind.name(model.language), tint: model.theme.color(for: kind).swiftUIColor)
                     }
                 }
             }
@@ -66,7 +66,7 @@ struct ProjectHeaderView: View {
                 Text(status).font(.footnote).foregroundStyle(.secondary).lineLimit(2)
             }
             if model.isIngesting {
-                ProgressView(model.ingestProgress.map { "\($0.filesParsed) parsed · \($0.currentPath)" } ?? "Reading…")
+                ProgressView(model.ingestProgress.map { L("\($0.filesParsed)개 분석 · \($0.currentPath)", "\($0.filesParsed) parsed · \($0.currentPath)") } ?? L("읽는 중…", "Reading…"))
                     .font(.footnote)
             }
         }
@@ -105,6 +105,7 @@ private struct VisionDashboard: View {
                     constellationControls
                     TimeDialView()
                     ThemePickerView()
+                    SettingsPanel()
                     ParticipantsView()
                     if model.tour != nil { TourBarView() }
                 }
@@ -122,7 +123,7 @@ private struct VisionDashboard: View {
     /// Layout style (shape of the sky) + relation mode and legend.
     private var constellationControls: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Constellation · 별자리", systemImage: model.layoutStyle.symbol).font(.headline)
+            Label(L("별자리", "Constellation"), systemImage: model.layoutStyle.symbol).font(.headline)
             LayoutStylePicker()
             RelationLegendView()
         }
@@ -136,14 +137,14 @@ private struct VisionDashboard: View {
             HostOrbGlyph(presence: model.hostPresence, color: model.theme.orbHalo.swiftUIColor)
             VStack(alignment: .leading, spacing: 2) {
                 Text(model.hostStateLabel).font(.caption.weight(.semibold))
-                Text(model.hostAI.backend.label).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                Text(model.hostAI.backendLabel).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
             if model.dockedClusterID != nil {
-                Button("Undock · 나와") { model.undockHost() }.controlSize(.small)
+                Button(L("분리", "Undock")) { model.undockHost() }.controlSize(.small)
             }
             SpeakRepliesToggle(compact: false)
-            Text(model.immersiveState == .open ? "In constellation" : "Window only")
+            Text(model.immersiveState == .open ? L("별자리 안", "In constellation") : L("창만", "Window only"))
                 .font(.caption2).foregroundStyle(.secondary)
         }
         .padding(12)
@@ -155,7 +156,7 @@ private struct VisionDashboard: View {
             Button {
                 Task { await toggleImmersive() }
             } label: {
-                Label(model.immersiveState == .open ? "Leave Constellation · 나가기" : "Enter Constellation · 입장",
+                Label(model.immersiveState == .open ? L("별자리 나가기", "Leave Constellation") : L("별자리 입장", "Enter Constellation"),
                       systemImage: model.immersiveState == .open ? "arrow.down.right.and.arrow.up.left" : "sparkles")
                     .frame(maxWidth: .infinity)
             }
@@ -248,22 +249,22 @@ private struct SplitDashboard: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
-            Button { model.showProjectImporter = true } label: { Label("Open Project", systemImage: "folder") }
-                .help("Open a project folder (⌘O)")
+            Button { model.showProjectImporter = true } label: { Label(L("프로젝트 열기", "Open Project"), systemImage: "folder") }
+                .help(L("프로젝트 폴더 열기 (⌘O)", "Open a project folder (⌘O)"))
             GranularityPicker(compact: true)
             Menu {
                 LayoutStylePicker(compact: true)
                 Divider()
-                Text(model.layoutStyle.axes)
+                Text(model.layoutStyle.axes(model.language))
             } label: {
-                Label("Layout", systemImage: model.layoutStyle.symbol)
+                Label(L("배치", "Layout"), systemImage: model.layoutStyle.symbol)
             }
-            .help("Constellation layout · 배치 (\(model.layoutStyle.label))")
+            .help(L("별자리 배치 (\(model.layoutStyle.name(model.language)))", "Constellation layout (\(model.layoutStyle.name(model.language)))"))
             RelationToolbarControl()
             Menu {
-                Picker("Theme", selection: themeSelection) {
+                Picker(L("테마", "Theme"), selection: themeSelection) {
                     ForEach(ConstellateTheme.presets) { preset in
-                        Text(preset.name).tag(preset.name)
+                        Text(themeDisplayName(preset.name)).tag(preset.name)
                     }
                     if !ConstellateTheme.presets.contains(where: { $0.name == model.theme.name }) {
                         Text(model.theme.name).tag(model.theme.name)
@@ -271,11 +272,11 @@ private struct SplitDashboard: View {
                 }
                 .pickerStyle(.inline)
             } label: {
-                Label("Theme", systemImage: "paintpalette")
+                Label(L("테마", "Theme"), systemImage: "paintpalette")
             }
-            Button { Task { await model.startTour() } } label: { Label("Tour", systemImage: "figure.walk") }
+            Button { Task { await model.startTour() } } label: { Label(L("투어", "Tour"), systemImage: "figure.walk") }
             Button { model.addSimulatedMember() } label: {
-                Label("Add member", systemImage: "person.badge.plus")
+                Label(L("참가자 추가", "Add member"), systemImage: "person.badge.plus")
                     .overlay(alignment: .topTrailing) {
                         Text("\(model.participants.count)")
                             .font(.system(size: 9, weight: .bold).monospacedDigit())
@@ -285,9 +286,10 @@ private struct SplitDashboard: View {
                             .offset(x: 10, y: -8)
                     }
             }
-            .accessibilityLabel("Add simulated member")
-            .accessibilityValue("\(model.participants.count) participants")
-            .help("Add a simulated member (\(model.participants.count) in the meeting)")
+            .accessibilityLabel(L("가상 참가자 추가", "Add simulated member"))
+            .accessibilityValue(L("참가자 \(model.participants.count)명", "\(model.participants.count) participants"))
+            .help(L("가상 참가자 추가 (현재 \(model.participants.count)명)", "Add a simulated member (\(model.participants.count) in the meeting)"))
+            SettingsMenu()
             VoiceButton(compact: true)
         }
     }
@@ -312,25 +314,28 @@ struct HostHUDView: View {
                     if let last = model.hostTranscript.last(where: { $0.role == .host }) {
                         reply(last.text)
                     } else {
-                        Text(model.hostAI.backend.label).font(.callout).foregroundStyle(.secondary)
+                        Text(model.hostAI.backendLabel).font(.callout).foregroundStyle(.secondary)
                     }
                 }
                 Spacer(minLength: 8)
                 if model.dockedClusterID != nil {
-                    Button("Undock · 나와") { model.undockHost() }
+                    Button(L("분리", "Undock")) { model.undockHost() }
                 }
                 SpeakRepliesToggle(compact: true)
-                Button { showTranscript = true } label: { Label("Transcript", systemImage: "text.bubble") }
+                Button { showTranscript = true } label: { Label(L("대화 기록", "Transcript"), systemImage: "text.bubble") }
                     .labelStyle(.iconOnly)
-                    .help("Show the full host transcript")
+                    .help(L("호스트 대화 기록 전체 보기", "Show the full host transcript"))
                 TimeDialView(compact: true).frame(width: 200)
             }
             HStack {
-                TextField(model.screenshotMode ? "Ask the host…" : "Ask the host… (\"find views using @State\", \"explain\", \"tour\")", text: $question)
+                TextField(model.screenshotMode
+                          ? L("호스트에게 질문…", "Ask the host…")
+                          : L("호스트에게 질문… (\"@State 쓰는 뷰 찾아줘\", \"설명해줘\", \"투어\")", "Ask the host… (\"find views using @State\", \"explain\", \"tour\")"),
+                          text: $question)
                     .textFieldStyle(.roundedBorder)
                     .focused($fieldFocused)
                     .onSubmit(submit)
-                Button("Send", action: submit)
+                Button(L("보내기", "Send"), action: submit)
                     .disabled(isThinking || question.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
@@ -340,9 +345,9 @@ struct HostHUDView: View {
             NavigationStack {
                 HostChatView()
                     .padding()
-                    .navigationTitle("Host transcript")
+                    .navigationTitle(L("호스트 대화 기록", "Host transcript"))
                     .toolbar {
-                        ToolbarItem(placement: .confirmationAction) { Button("Done") { showTranscript = false } }
+                        ToolbarItem(placement: .confirmationAction) { Button(L("완료", "Done")) { showTranscript = false } }
                     }
             }
             .frame(minWidth: 420, minHeight: 520)
@@ -366,7 +371,7 @@ struct HostHUDView: View {
             }
         }
         .buttonStyle(.plain)
-        .help(isExpanded ? "Collapse" : "Show the full reply")
+        .help(isExpanded ? L("접기", "Collapse") : L("답변 전체 보기", "Show the full reply"))
     }
 
     private func submit() {
@@ -381,7 +386,7 @@ struct HostHUDView: View {
 
 // MARK: - Speak replies
 
-/// "Speak replies · 음성 읽기" toggle (persisted via AppModel → UserDefaults).
+/// "답변 음성 읽기" toggle (persisted via AppModel → UserDefaults).
 struct SpeakRepliesToggle: View {
     @Environment(AppModel.self) private var model
     var compact = false
@@ -389,12 +394,12 @@ struct SpeakRepliesToggle: View {
     var body: some View {
         @Bindable var model = model
         let toggle = Toggle(isOn: $model.speakReplies) {
-            Label("Speak replies · 음성 읽기", systemImage: model.speakReplies ? "speaker.wave.2.fill" : "speaker.slash")
+            Label(L("답변 음성 읽기", "Speak replies"), systemImage: model.speakReplies ? "speaker.wave.2.fill" : "speaker.slash")
         }
         .toggleStyle(.button)
         .controlSize(.small)
-        .help("Read the host's replies aloud")
-        .accessibilityLabel("Speak replies")
+        .help(L("호스트 답변을 소리 내어 읽습니다", "Read the host's replies aloud"))
+        .accessibilityLabel(L("답변 음성 읽기", "Speak replies"))
         if compact {
             toggle.labelStyle(.iconOnly)
         } else {
@@ -410,9 +415,9 @@ struct GranularityPicker: View {
     var compact = false
 
     var body: some View {
-        let picker = Picker("Orbs · 뭉치", selection: Binding(get: { model.granularity }, set: { model.setGranularity($0) })) {
+        let picker = Picker(L("뭉치", "Orbs"), selection: Binding(get: { model.granularity }, set: { model.setGranularity($0) })) {
             ForEach(ClusterGranularity.allCases) { g in
-                Text(g.rawValue.capitalized).tag(g)
+                Text(g.name(model.language)).tag(g)
             }
         }
         if compact {
@@ -445,7 +450,16 @@ struct HostOrbGlyph: View {
             }
         }
         .frame(width: 34, height: 34)
-        .accessibilityLabel("Host orb, \(String(describing: presence))")
+        .accessibilityLabel(L("호스트 오브, \(presenceLabel)", "Host orb, \(presenceLabel)"))
+    }
+
+    private var presenceLabel: String {
+        switch presence {
+        case .thinking: L("생각 중", "thinking")
+        case .speaking: L("말하는 중", "speaking")
+        case .listening: L("듣는 중", "listening")
+        case .idle: L("대기", "idle")
+        }
     }
 }
 

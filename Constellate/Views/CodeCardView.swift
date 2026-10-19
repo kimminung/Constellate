@@ -46,7 +46,7 @@ struct CodeCardView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(palette.cardBorder.swiftUIColor))
-        .accessibilityLabel("Source code, \(lineCount) lines")
+        .accessibilityLabel(L("소스 코드, \(lineCount)줄", "Source code, \(lineCount) lines"))
         .task(id: nodeID) { await load(palette: palette) }
     }
 

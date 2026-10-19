@@ -10,7 +10,7 @@ struct ThemePickerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Theme · 테마").font(.headline)
+                Text(L("테마", "Theme")).font(.headline)
                 Spacer()
                 validationBadge
             }
@@ -24,14 +24,15 @@ struct ThemePickerView: View {
                             }
                             .frame(width: 36, height: 36)
                             .overlay(Circle().stroke(model.theme.name == preset.name ? Color.primary : .clear, lineWidth: 2))
-                            Text(preset.name).font(.caption2)
+                            Text(themeDisplayName(preset.name)).font(.caption2)
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(themeDisplayName(preset.name))
                 }
             }
             HStack {
-                Text("Hue").font(.caption)
+                Text(L("색조", "Hue")).font(.caption)
                 Slider(value: $hue, in: 0...359, step: 1)
                 Text("\(Int(hue))°").font(.caption.monospacedDigit()).frame(width: 40, alignment: .trailing)
             }
@@ -52,7 +53,9 @@ struct ThemePickerView: View {
         return HStack(spacing: 4) {
             Image(systemName: violations.isEmpty ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
                 .foregroundStyle(violations.isEmpty ? Color.green : .orange)
-            Text(violations.isEmpty ? "legible" : "\(violations.count) rule\(violations.count == 1 ? "" : "s")")
+            Text(violations.isEmpty
+                 ? L("가독성 통과", "legible")
+                 : L("규칙 \(violations.count)개 위반", "\(violations.count) rule\(violations.count == 1 ? "" : "s")"))
                 .font(.caption)
         }
         .help(violations.map(\.description).joined(separator: "\n"))

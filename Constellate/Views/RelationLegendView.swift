@@ -11,21 +11,21 @@ struct LayoutStylePicker: View {
     var body: some View {
         let selection = Binding(get: { model.layoutStyle }, set: { model.setLayoutStyle($0) })
         if compact {
-            Picker("Layout · 배치", selection: selection) {
+            Picker(L("배치", "Layout"), selection: selection) {
                 ForEach(LayoutStyle.allCases) { style in
-                    Label(style.label, systemImage: style.symbol).tag(style)
+                    Label(style.name(model.language), systemImage: style.symbol).tag(style)
                 }
             }
             .pickerStyle(.inline)
         } else {
             VStack(alignment: .leading, spacing: 6) {
-                Picker("Layout · 배치", selection: selection) {
+                Picker(L("배치", "Layout"), selection: selection) {
                     ForEach(LayoutStyle.allCases) { style in
-                        Label(style.label, systemImage: style.symbol).tag(style)
+                        Label(style.name(model.language), systemImage: style.symbol).tag(style)
                     }
                 }
                 .pickerStyle(.menu)
-                Text(model.layoutStyle.axes)
+                Text(model.layoutStyle.axes(model.language))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -41,9 +41,9 @@ struct RelationModePicker: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        Picker("Relations · 관계", selection: Binding(get: { model.relationMode }, set: { model.setRelationMode($0) })) {
+        Picker(L("관계", "Relations"), selection: Binding(get: { model.relationMode }, set: { model.setRelationMode($0) })) {
             ForEach(RelationDisplayMode.allCases) { mode in
-                Label(mode.label, systemImage: mode.symbol).tag(mode)
+                Label(mode.name(model.language), systemImage: mode.symbol).tag(mode)
             }
         }
         .pickerStyle(.segmented)
@@ -65,12 +65,14 @@ struct RelationLegendView: View {
                 row(kind)
             }
             HStack {
-                Text(model.relationMode == .focus ? "Select a card to see its relations · 카드를 선택하세요" : "Tap a row to hide it · 눌러서 숨기기")
+                Text(model.relationMode == .focus
+                     ? L("카드를 선택하면 그 관계가 보입니다", "Select a card to see its relations")
+                     : L("행을 누르면 숨겨집니다", "Tap a row to hide it"))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 Spacer()
                 if !model.hiddenRelations.isEmpty {
-                    Button("Show all") { model.showAllRelations() }
+                    Button(L("모두 표시", "Show all")) { model.showAllRelations() }
                         .font(.caption)
                 }
             }
@@ -81,6 +83,7 @@ struct RelationLegendView: View {
         let style = kind.style
         let hidden = model.hiddenRelations.contains(kind)
         let count = model.relationTotals[kind] ?? 0
+        let language = model.language
         return Button {
             model.toggleRelation(kind)
         } label: {
@@ -88,8 +91,8 @@ struct RelationLegendView: View {
                 RelationSwatch(color: style.color.swiftUIColor, dashed: style.dashed, flow: style.flow)
                     .frame(width: 38, height: 12)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(style.label).font(.callout.weight(.medium))
-                    Text(style.hint).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    Text(style.name(language)).font(.callout.weight(.medium))
+                    Text(kind.hint(language)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 6)
                 Text(count.formatted())
@@ -103,9 +106,9 @@ struct RelationLegendView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(style.labelEn) relations, \(count)")
-        .accessibilityValue(hidden ? "hidden" : "shown")
-        .help(style.hint)
+        .accessibilityLabel(L("\(style.labelKo) 관계, \(count)개", "\(style.labelEn) relations, \(count)"))
+        .accessibilityValue(hidden ? L("숨김", "hidden") : L("표시", "shown"))
+        .help(kind.hint(language))
     }
 }
 
@@ -143,14 +146,15 @@ struct RelationToolbarControl: View {
     var body: some View {
         HStack(spacing: 2) {
             Button { model.cycleRelationMode() } label: {
-                Label(model.relationMode.label, systemImage: model.relationMode.symbol)
+                Label(model.relationMode.name(model.language), systemImage: model.relationMode.symbol)
             }
             .modifier(TouchKeyboardShortcut(key: "l"))
-            .help("Relations: \(model.relationMode.label) (⌘L cycles off → focus → all)")
+            .help(L("관계: \(model.relationMode.name(model.language)) (⌘L로 끔 → 선택 → 전체 순환)",
+                    "Relations: \(model.relationMode.name(model.language)) (⌘L cycles off → focus → all)"))
             Button { showLegend.toggle() } label: {
-                Label("Legend", systemImage: "list.bullet.rectangle")
+                Label(L("범례", "Legend"), systemImage: "list.bullet.rectangle")
             }
-            .help("Relation legend · 관계 범례")
+            .help(L("관계 범례", "Relation legend"))
             .popover(isPresented: $showLegend) {
                 ScrollView {
                     RelationLegendView()

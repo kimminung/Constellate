@@ -12,14 +12,15 @@ final class HostToolContext {
     weak var model: AppModel?
 
     var graph: CodeGraph { model?.graph ?? SampleGraph.orbitNotes() }
+    var language: HostLanguage { model?.language ?? .appDefault }
 
     func locate(_ query: String) -> HostReply {
-        HeuristicHost.locate(query, in: graph, limit: 6)
+        HeuristicHost.locate(query, in: graph, limit: 6, language: language)
     }
 
     func explain(_ rawID: String) -> HostReply {
         guard let id = resolve(rawID) else { return HostReply("Unknown node id \(rawID).") }
-        var reply = HeuristicHost.explain(id, in: graph)
+        var reply = HeuristicHost.explain(id, in: graph, language: language)
         // Role, coupling, cycle and relations by meaning ("Presents → SettingsView") — what the constellation shows.
         if let digest = model?.relationSummary(for: id), !digest.isEmpty {
             reply.text += "\n\nRelations: " + digest
@@ -37,7 +38,7 @@ final class HostToolContext {
             let titles = (model?.clusters ?? []).prefix(10).map(\.title).joined(separator: ", ")
             return HostReply("Unknown cluster \(rawID). Known clusters: \(titles)")
         }
-        return HeuristicHost.summarize(cluster, in: graph)
+        return HeuristicHost.summarize(cluster, in: graph, language: language)
     }
 
     func reviewSource(_ rawID: String) -> HostReply {
@@ -73,12 +74,12 @@ final class HostToolContext {
 
 nonisolated struct LocateCodeTool: Tool {
     let name = "locateCode"
-    let description = "Find code in the project from a natural-language description (names, kinds like view/model/test, tags like @State, 'inherits X', 'in folder Y', and relations: 'presents X', 'observed by X', 'creates X', 'embedded in X'). Returns matching nodes with their ids."
+    let description = "Find code in the project from a natural-language description in Korean or English (names, kinds like view/model/test, tags like @State, 'inherits X', 'in folder Y', and relations: 'presents X', 'observed by X', 'creates X', 'embedded in X', 'X를 띄우는 뷰'). Returns matching nodes with their ids."
     let context: HostToolContext
 
     @Generable
     struct Arguments {
-        @Guide(description: "What to look for, e.g. 'views that use @State' or 'the note repository'")
+        @Guide(description: "What to look for, e.g. 'views that use @State', '@State를 쓰는 뷰' or 'the note repository'")
         var query: String
     }
 
@@ -162,7 +163,7 @@ nonisolated struct PlanTourTool: Tool {
 
 @Generable(description: "Answer to a 'find the code that …' request")
 nonisolated struct LocateAnswer {
-    @Guide(description: "One or two short sentences for the person, grounded in the tool results.")
+    @Guide(description: "One or two short sentences for the person, in the language the instructions ask for, grounded in the tool results.")
     var reply: String
     @Guide(description: "Node ids from the locateCode tool, best first.", .maximumCount(6))
     var nodeIDs: [String]
@@ -170,7 +171,7 @@ nonisolated struct LocateAnswer {
 
 @Generable(description: "A guided tour of the project")
 nonisolated struct TourAnswer {
-    @Guide(description: "Short tour title")
+    @Guide(description: "Short tour title, in the language the instructions ask for")
     var title: String
     @Guide(description: "Ordered tour stops", .maximumCount(8))
     var steps: [TourStopAnswer]
@@ -182,7 +183,7 @@ nonisolated struct TourStopAnswer {
     var nodeID: String
     @Guide(description: "Short title")
     var title: String
-    @Guide(description: "One or two sentences of narration for a newcomer")
+    @Guide(description: "One or two sentences of narration for a newcomer, in the language the instructions ask for")
     var narration: String
 }
 #endif
@@ -190,6 +191,7 @@ nonisolated struct TourStopAnswer {
 // MARK: - HostAI
 
 /// On-device code-review host. Wraps `LanguageModelSession` with tools and falls back to `HeuristicHost`.
+/// Speaks the app's `HostLanguage` — Korean by default; switching rebuilds the session with new instructions.
 @Observable
 @MainActor
 final class HostAI {
@@ -198,28 +200,63 @@ final class HostAI {
         case appleIntelligence
         case heuristic(reason: String)
 
-        var label: String {
+        func label(_ language: HostLanguage) -> String {
             switch self {
-            case .appleIntelligence: "Apple Intelligence · on-device"
-            case .heuristic(let reason): "Heuristic host · \(reason)"
+            case .appleIntelligence: language.pick("Apple Intelligence · 온디바이스", "Apple Intelligence · on-device")
+            case .heuristic(let reason): language.pick("휴리스틱 호스트 · \(reason)", "Heuristic host · \(reason)")
             }
         }
 
         var isModel: Bool { self == .appleIntelligence }
     }
 
-    private(set) var backend: Backend = .heuristic(reason: "checking")
+    private(set) var backend: Backend = .heuristic(reason: "…")
     private(set) var isThinking = false
     private(set) var lastError: String?
+    /// False when the on-device model is up but does not list the chosen language; replies may then come back in English.
+    private(set) var modelSupportsLanguage = true
     let context = HostToolContext()
 
-    private static let instructions = """
-    You are the host of Constellate, a spatial code-review meeting. The team is looking at a 3-D "constellation" of a \
-    software project: files, types and members are cards, clusters are orbs. Answer in English, concisely (at most \
-    three short sentences unless the person asks for a review). Always ground answers in tool results: use locateCode \
-    to find code, explainNode for details, summarizeCluster for an orb, reviewNode before reviewing, planTour before \
-    planning a tour. Never invent file names or ids. When you mention a node, use its name, not its id.
-    """
+    /// Reply language. Set by `AppModel.setLanguage`; the session is rebuilt so new instructions apply at once.
+    var language: HostLanguage = .appDefault {
+        didSet {
+            guard language != oldValue else { return }
+#if canImport(FoundationModels)
+            session = nil
+#endif
+            refreshAvailability()
+        }
+    }
+
+    /// "Apple Intelligence · 온디바이스" / "휴리스틱 호스트 · 모델 다운로드 중" in the current language.
+    var backendLabel: String {
+        var label = backend.label(language)
+        if backend.isModel && !modelSupportsLanguage {
+            label += language.pick(" (한국어 미지원 모델)", " (model lacks this language)")
+        }
+        return label
+    }
+
+    private static func instructions(for language: HostLanguage) -> String {
+        switch language {
+        case .korean:
+            """
+            당신은 공간형 코드 리뷰 회의 앱 Constellate의 호스트입니다. 팀은 소프트웨어 프로젝트의 3차원 "코드 별자리"를 보고 \
+            있습니다: 파일·타입·멤버는 카드, 클러스터는 오브입니다. 반드시 한국어로, 간결하게 답하세요(리뷰를 요청받지 않는 한 \
+            짧은 문장 세 개 이내). 답은 항상 도구 결과에 근거하세요: 코드를 찾을 때는 locateCode, 세부 정보는 explainNode, \
+            오브는 summarizeCluster, 리뷰 전에는 reviewNode, 투어 계획 전에는 planTour를 사용하세요. 파일 이름이나 id를 \
+            지어내지 마세요. 노드를 언급할 때는 id가 아니라 이름을 쓰고, 타입·함수 같은 코드 식별자는 번역하지 말고 원문 그대로 쓰세요.
+            """
+        case .english:
+            """
+            You are the host of Constellate, a spatial code-review meeting. The team is looking at a 3-D "constellation" of a \
+            software project: files, types and members are cards, clusters are orbs. Answer in English, concisely (at most \
+            three short sentences unless the person asks for a review). Always ground answers in tool results: use locateCode \
+            to find code, explainNode for details, summarizeCluster for an orb, reviewNode before reviewing, planTour before \
+            planning a tour. Never invent file names or ids. When you mention a node, use its name, not its id.
+            """
+        }
+    }
 
 #if canImport(FoundationModels)
     private var session: LanguageModelSession?
@@ -238,13 +275,14 @@ final class HostAI {
         switch model.availability {
         case .available:
             backend = .appleIntelligence
+            modelSupportsLanguage = model.supportedLanguages.contains { $0.languageCode?.identifier == language.rawValue }
             if session == nil { session = makeSession() }
         case .unavailable(let reason):
             session = nil
-            backend = .heuristic(reason: Self.describe(reason))
+            backend = .heuristic(reason: Self.describe(reason, language))
         }
 #else
-        backend = .heuristic(reason: "FoundationModels not available on this platform")
+        backend = .heuristic(reason: language.pick("이 플랫폼에서는 FoundationModels를 쓸 수 없음", "FoundationModels not available on this platform"))
 #endif
     }
 
@@ -264,7 +302,7 @@ final class HostAI {
             PlanTourTool(context: context)
         ]
         turnCount = 0
-        return LanguageModelSession(model: .default, tools: tools, instructions: Self.instructions)
+        return LanguageModelSession(model: .default, tools: tools, instructions: Self.instructions(for: language))
     }
 
     /// Rebuilds the session when the transcript grows long so we never hit the context limit mid-answer.
@@ -282,24 +320,24 @@ final class HostAI {
             switch lmError {
             case .contextSizeExceeded:
                 session = makeSession()
-                return "The conversation got long, so I started a fresh session."
-            case .guardrailViolation: return "I can't help with that request."
-            case .refusal: return "The model declined to answer; here is the heuristic result instead."
-            case .rateLimited: return "Rate limited — try again in a moment."
-            case .unsupportedLanguageOrLocale: return "That language isn't supported by the on-device model."
-            case .timeout: return "The model timed out."
+                return language.pick("대화가 길어져서 새 세션을 시작했습니다.", "The conversation got long, so I started a fresh session.")
+            case .guardrailViolation: return language.pick("그 요청은 도와드릴 수 없습니다.", "I can't help with that request.")
+            case .refusal: return language.pick("모델이 답변을 거부해 휴리스틱 결과로 대신합니다.", "The model declined to answer; here is the heuristic result instead.")
+            case .rateLimited: return language.pick("요청이 너무 잦습니다 — 잠시 후 다시 시도하세요.", "Rate limited — try again in a moment.")
+            case .unsupportedLanguageOrLocale: return language.pick("온디바이스 모델이 이 언어를 지원하지 않습니다.", "That language isn't supported by the on-device model.")
+            case .timeout: return language.pick("모델 응답 시간이 초과됐습니다.", "The model timed out.")
             default: return lmError.localizedDescription
             }
         }
         return error.localizedDescription
     }
 
-    private static func describe(_ reason: SystemLanguageModel.Availability.UnavailableReason) -> String {
+    private static func describe(_ reason: SystemLanguageModel.Availability.UnavailableReason, _ language: HostLanguage) -> String {
         switch reason {
-        case .deviceNotEligible: "device not eligible"
-        case .appleIntelligenceNotEnabled: "Apple Intelligence is off in Settings"
-        case .modelNotReady: "model still downloading"
-        @unknown default: "model unavailable"
+        case .deviceNotEligible: language.pick("지원되지 않는 기기", "device not eligible")
+        case .appleIntelligenceNotEnabled: language.pick("설정에서 Apple Intelligence 꺼짐", "Apple Intelligence is off in Settings")
+        case .modelNotReady: language.pick("모델 다운로드 중", "model still downloading")
+        @unknown default: language.pick("모델 사용 불가", "model unavailable")
         }
     }
 #endif
@@ -314,8 +352,7 @@ final class HostAI {
 #if canImport(FoundationModels)
         if let session = freshSessionIfNeeded() {
             do {
-                let prompt = situation.isEmpty ? text : "Context: \(situation)\n\nQuestion: \(text)"
-                let response = try await session.respond(to: prompt, options: GenerationOptions(temperature: 0.4, maximumResponseTokens: 500))
+                let response = try await session.respond(to: prompt(text, situation: situation), options: GenerationOptions(temperature: 0.4, maximumResponseTokens: 500))
                 let ids = Self.extractIDs(from: response.content, graph: graph)
                 return HostReply(response.content, nodeIDs: ids)
             } catch {
@@ -323,7 +360,7 @@ final class HostAI {
             }
         }
 #endif
-        return HeuristicHost.chat(text, graph: graph, clusters: clusters, docked: docked)
+        return HeuristicHost.chat(text, graph: graph, clusters: clusters, docked: docked, language: language)
     }
 
     /// Streaming chat. `onPartial` receives the cumulative text at ≤ ~15 Hz; the final text is always delivered.
@@ -334,8 +371,7 @@ final class HostAI {
 #if canImport(FoundationModels)
         if let session = freshSessionIfNeeded() {
             do {
-                let prompt = situation.isEmpty ? text : "Context: \(situation)\n\nQuestion: \(text)"
-                let stream = session.streamResponse(to: prompt, options: GenerationOptions(temperature: 0.4, maximumResponseTokens: 500))
+                let stream = session.streamResponse(to: prompt(text, situation: situation), options: GenerationOptions(temperature: 0.4, maximumResponseTokens: 500))
                 var latest = ""
                 var lastEmit = ContinuousClock.now - .seconds(1)
                 for try await snapshot in stream {
@@ -356,7 +392,7 @@ final class HostAI {
             }
         }
 #endif
-        let reply = HeuristicHost.chat(text, graph: graph, clusters: clusters, docked: docked)
+        let reply = HeuristicHost.chat(text, graph: graph, clusters: clusters, docked: docked, language: language)
         onPartial(reply.text)
         return reply
     }
@@ -370,7 +406,9 @@ final class HostAI {
         if let session = freshSessionIfNeeded() {
             do {
                 let response = try await session.respond(
-                    to: "Find the code that matches: \"\(query)\". Use the locateCode tool, then answer.",
+                    to: language.pick(
+                        "다음 설명에 맞는 코드를 찾으세요: \"\(query)\". locateCode 도구를 사용한 뒤 한국어로 답하세요.",
+                        "Find the code that matches: \"\(query)\". Use the locateCode tool, then answer."),
                     generating: LocateAnswer.self,
                     options: GenerationOptions(temperature: 0.2, maximumResponseTokens: 400)
                 )
@@ -381,23 +419,29 @@ final class HostAI {
             }
         }
 #endif
-        return HeuristicHost.locate(query, in: graph)
+        return HeuristicHost.locate(query, in: graph, language: language)
     }
 
     func explain(_ id: NodeID, graph: CodeGraph) async -> HostReply {
-        let fallback = HeuristicHost.explain(id, in: graph)
+        let fallback = HeuristicHost.explain(id, in: graph, language: language)
         guard let node = graph.node(id) else { return fallback }
-        let reply = await chat("Explain \(node.name) (id: \(id.raw)) to a teammate who hasn't seen it. Use explainNode.", situation: "", graph: graph, clusters: [], docked: nil)
+        let request = language.pick(
+            "\(node.name) (id: \(id.raw))을(를) 처음 보는 팀원에게 설명하세요. explainNode를 사용하세요.",
+            "Explain \(node.name) (id: \(id.raw)) to a teammate who hasn't seen it. Use explainNode.")
+        let reply = await chat(request, situation: "", graph: graph, clusters: [], docked: nil)
         return HostReply(reply.text, nodeIDs: [id] + reply.nodeIDs.filter { $0 != id })
     }
 
     func review(_ id: NodeID, graph: CodeGraph, projectRoot: URL?) async -> HostReply {
-        guard let node = graph.node(id) else { return HostReply("Nothing selected to review.") }
+        guard let node = graph.node(id) else { return HostReply(language.pick("리뷰할 대상이 선택되지 않았습니다.", "Nothing selected to review.")) }
         let source = SourceProvider.source(for: node, in: graph, projectRoot: projectRoot)
-        let fallback = HeuristicHost.review(id, source: source, in: graph)
+        let fallback = HeuristicHost.review(id, source: source, in: graph, language: language)
 #if canImport(FoundationModels)
         if backend.isModel {
-            let reply = await chat("Review \(node.name) (id: \(id.raw)). Call reviewNode first, then list up to four concrete findings.", situation: "", graph: graph, clusters: [], docked: nil)
+            let request = language.pick(
+                "\(node.name) (id: \(id.raw))을(를) 리뷰하세요. 먼저 reviewNode를 호출한 뒤 구체적인 지적 사항을 최대 4개 나열하세요.",
+                "Review \(node.name) (id: \(id.raw)). Call reviewNode first, then list up to four concrete findings.")
+            let reply = await chat(request, situation: "", graph: graph, clusters: [], docked: nil)
             if lastError == nil { return HostReply(reply.text, nodeIDs: [id]) }
         }
 #endif
@@ -405,10 +449,13 @@ final class HostAI {
     }
 
     func summarize(_ cluster: CodeCluster, graph: CodeGraph) async -> HostReply {
-        let fallback = HeuristicHost.summarize(cluster, in: graph)
+        let fallback = HeuristicHost.summarize(cluster, in: graph, language: language)
 #if canImport(FoundationModels)
         if backend.isModel {
-            let reply = await chat("Summarize the cluster \"\(cluster.title)\" (id: \(cluster.id)) in two sentences. Use summarizeCluster.", situation: "", graph: graph, clusters: [], docked: nil)
+            let request = language.pick(
+                "클러스터 \"\(cluster.title)\" (id: \(cluster.id))을(를) 두 문장으로 요약하세요. summarizeCluster를 사용하세요.",
+                "Summarize the cluster \"\(cluster.title)\" (id: \(cluster.id)) in two sentences. Use summarizeCluster.")
+            let reply = await chat(request, situation: "", graph: graph, clusters: [], docked: nil)
             if lastError == nil { return HostReply(reply.text, nodeIDs: fallback.nodeIDs) }
         }
 #endif
@@ -418,12 +465,14 @@ final class HostAI {
     func planTour(graph: CodeGraph) async -> LearningTour {
         isThinking = true
         defer { isThinking = false }
-        let fallback = HeuristicHost.tour(for: graph)
+        let fallback = HeuristicHost.tour(for: graph, language: language)
 #if canImport(FoundationModels)
         if let session = freshSessionIfNeeded() {
             do {
                 let response = try await session.respond(
-                    to: "Plan a guided tour of \(graph.projectName) for a new team member. Call planTour, then pick 4–8 stops and narrate each.",
+                    to: language.pick(
+                        "새 팀원을 위해 \(graph.projectName)의 가이드 투어를 계획하세요. planTour를 호출한 뒤 4~8개 정류장을 골라 각각 한국어로 해설하세요.",
+                        "Plan a guided tour of \(graph.projectName) for a new team member. Call planTour, then pick 4–8 stops and narrate each."),
                     generating: TourAnswer.self,
                     options: GenerationOptions(temperature: 0.5, maximumResponseTokens: 900)
                 )
@@ -438,6 +487,12 @@ final class HostAI {
         }
 #endif
         return fallback
+    }
+
+    /// Wraps the question with the situation line in the session's language.
+    private func prompt(_ text: String, situation: String) -> String {
+        guard !situation.isEmpty else { return text }
+        return language.pick("상황: \(situation)\n\n질문: \(text)", "Context: \(situation)\n\nQuestion: \(text)")
     }
 
     /// Finds node names mentioned in free text so the scene can highlight them.

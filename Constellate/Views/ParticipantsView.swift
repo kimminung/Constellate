@@ -8,42 +8,49 @@ struct ParticipantsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Participants · 참가자").font(.headline)
+                Text(L("참가자", "Participants")).font(.headline)
                 Spacer()
-                Text(model.session.state.label).font(.caption).foregroundStyle(.secondary)
+                Text(sessionLabel).font(.caption).foregroundStyle(.secondary)
             }
             ForEach(model.participants) { participant in
                 HStack(spacing: 10) {
                     Circle()
                         .fill(model.theme.avatarAccent.shiftedHue(by: participant.hueOffset).swiftUIColor)
                         .frame(width: 12, height: 12)
-                    Text(participant.displayName + (participant.isLocal ? " (you)" : ""))
+                    Text(participant.displayName + (participant.isLocal ? L(" (나)", " (you)") : ""))
                     Spacer()
-                    Text(participant.role == .host ? "HOST" : "member")
+                    Text(participant.role == .host ? L("호스트", "HOST") : L("참가자", "member"))
                         .font(.caption2.weight(.bold))
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(participant.role == .host ? model.theme.orbHalo.swiftUIColor.opacity(0.3) : Color.secondary.opacity(0.15), in: Capsule())
                 }
             }
-            Picker("Mode", selection: Binding(get: { model.meetingMode }, set: { model.setMeetingMode($0) })) {
-                ForEach(MeetingMode.allCases, id: \.self) { mode in Text(mode.rawValue.capitalized).tag(mode) }
+            Picker(L("모드", "Mode"), selection: Binding(get: { model.meetingMode }, set: { model.setMeetingMode($0) })) {
+                ForEach(MeetingMode.allCases, id: \.self) { mode in Text(mode.name(model.language)).tag(mode) }
             }
             .pickerStyle(.segmented)
             HStack {
                 Button { Task { await model.session.startSharing() } } label: {
-                    Label("SharePlay · 초대", systemImage: "shareplay")
+                    Label(L("SharePlay 초대", "SharePlay"), systemImage: "shareplay")
                 }
                 Button { model.addSimulatedMember() } label: {
-                    Label("Add simulated member", systemImage: "person.badge.plus")
+                    Label(L("가상 참가자 추가", "Add simulated member"), systemImage: "person.badge.plus")
                 }
                 if model.session.isSimulated {
-                    Button("Clear") { model.session.removeSimulatedMembers() }
+                    Button(L("지우기", "Clear")) { model.session.removeSimulatedMembers() }
                 }
-                Toggle("Screenshot mode", isOn: Binding(get: { model.screenshotMode }, set: { model.screenshotMode = $0 }))
-                    .toggleStyle(.button)
-                    .help("Hide placeholders and toasts for clean captures")
             }
             .controlSize(.small)
+        }
+    }
+
+    /// SharePlay state in the current language.
+    private var sessionLabel: String {
+        switch model.session.state {
+        case .idle: L("공유 안 함", "Not sharing")
+        case .activating: L("SharePlay 시작 중…", "Starting SharePlay…")
+        case .shared(let n): L("SharePlay · \(n)명 연결", "SharePlay · \(n) connected")
+        case .unavailable(let reason): L("SharePlay 사용 불가 · \(reason)", "SharePlay unavailable · \(reason)")
         }
     }
 }

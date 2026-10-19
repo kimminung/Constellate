@@ -15,13 +15,13 @@ struct VoiceButton: View {
                     Image(systemName: listening ? "mic.fill" : "mic")
                         .symbolEffect(.variableColor.iterative, isActive: listening)
                 } else {
-                    Label(listening ? "Listening… · 듣는 중" : "Voice · 음성", systemImage: listening ? "mic.fill" : "mic")
+                    Label(listening ? L("듣는 중…", "Listening…") : L("음성", "Voice"), systemImage: listening ? "mic.fill" : "mic")
                         .symbolEffect(.variableColor.iterative, isActive: listening)
                 }
             }
             .tint(listening ? .red : nil)
-            .help(model.speech.state.label)
-            .accessibilityLabel(listening ? "Stop listening" : "Start listening")
+            .help(model.speech.stateLabel)
+            .accessibilityLabel(listening ? L("듣기 중지", "Stop listening") : L("듣기 시작", "Start listening"))
             if !compact, !model.speech.liveTranscript.isEmpty {
                 Text(model.speech.liveTranscript).font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }

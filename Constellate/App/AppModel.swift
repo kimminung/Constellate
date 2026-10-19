@@ -99,10 +99,10 @@ final class AppModel {
 
     var hostStateLabel: String {
         switch hostState {
-        case .free: "Host orb · free"
-        case .docked(let id): "Docked in \(clusters.first { $0.id == id }?.title ?? id)"
-        case .thinking: "Thinking…"
-        case .speaking: "Speaking"
+        case .free: L("호스트 오브 · 자유", "Host orb · free")
+        case .docked(let id): L("\(clusters.first { $0.id == id }?.title ?? id)에 도킹됨", "Docked in \(clusters.first { $0.id == id }?.title ?? id)")
+        case .thinking: L("생각 중…", "Thinking…")
+        case .speaking: L("말하는 중", "Speaking")
         }
     }
 
@@ -136,6 +136,9 @@ final class AppModel {
     var screenshotMode: Bool {
         didSet { UserDefaults.standard.set(screenshotMode, forKey: "screenshotMode") }
     }
+    /// Host AI, speech and interface language (persisted in `LanguageSetting`). Korean by default; English is an
+    /// advanced option in Settings. Change it through `setLanguage` so the AI session and recognizer follow.
+    var language: HostLanguage { LanguageSetting.shared.language }
 
     // MARK: Services
 
@@ -188,8 +191,10 @@ final class AppModel {
             guard let self, self.hostActivity == .speaking else { return }
             self.hostActivity = .idle
         }
+        hostAI.language = language
+        speech.language = language
         hostAI.prewarm()
-        hostTranscript.append(TranscriptEntry(role: .system, text: "Host ready · \(hostAI.backend.label)"))
+        hostTranscript.append(TranscriptEntry(role: .system, text: L("호스트 준비 완료 · ", "Host ready · ") + hostAI.backendLabel))
     }
 
     private static let layoutStyleKey = "layoutStyle"
@@ -199,9 +204,9 @@ final class AppModel {
     private static func deviceUserName() -> String {
 #if os(macOS)
         let name = ProcessInfo.processInfo.fullUserName
-        return name.isEmpty ? "You" : name
+        return name.isEmpty ? LanguageSetting.shared.language.pick("나", "You") : name
 #else
-        return "You"
+        return LanguageSetting.shared.language.pick("나", "You")
 #endif
     }
 
@@ -222,7 +227,7 @@ final class AppModel {
         if accessing { accessedURL = url }
         isIngesting = true
         ingestProgress = nil
-        statusMessage = "Reading \(url.lastPathComponent)…"
+        statusMessage = L("\(url.lastPathComponent) 읽는 중…", "Reading \(url.lastPathComponent)…")
         do {
             let ingested = try await ProjectIngestor().ingest(rootURL: url) { [weak self] progress in
                 guard progress.filesSeen % 20 == 0 else { return }
@@ -230,7 +235,8 @@ final class AppModel {
                 Task { @MainActor [weak self] in self?.ingestProgress = progress }
             }
             if await install(graph: ingested, projectRoot: url, token: token) {
-                statusMessage = "\(ingested.projectName): \(ingested.fileCount) files, \(ingested.totalLines) lines"
+                statusMessage = L("\(ingested.projectName): 파일 \(ingested.fileCount)개, \(ingested.totalLines)줄",
+                                  "\(ingested.projectName): \(ingested.fileCount) files, \(ingested.totalLines) lines")
             }
         } catch {
             // Superseded (the sample was loaded meanwhile, which also ended this folder's access): stay quiet.
@@ -323,7 +329,7 @@ final class AppModel {
     /// off → focus → all → off (the portfolio's `L` key).
     func cycleRelationMode() {
         setRelationMode(relationMode.next)
-        showToast("Relations · 관계: \(relationMode.label)")
+        showToast(L("관계: ", "Relations: ") + relationMode.name(language))
     }
 
     /// Legend toggle for one relation kind (local: each participant filters their own view).
@@ -358,14 +364,20 @@ final class AppModel {
     func relationSummary(for id: NodeID) -> String {
         guard let node = graph.node(id) else { return "" }
         var parts: [String] = []
-        if let role = node.role, !role.style.label.isEmpty { parts.append("Its role is \(role.style.label).") }
+        let lang = language
+        if let role = node.role, !role.style.label.isEmpty {
+            parts.append(lang.pick("역할은 \(role.style.label)입니다.", "Its role is \(role.style.label)."))
+        }
         let m = insights.metrics(for: id)
-        if m.fanIn + m.fanOut > 0 { parts.append("\(m.fanIn) files depend on its file and it depends on \(m.fanOut).") }
-        if m.cycleIndex != nil { parts.append("Its file is part of a dependency cycle.") }
+        if m.fanIn + m.fanOut > 0 {
+            parts.append(lang.pick("이 파일에 의존하는 파일 \(m.fanIn)개, 이 파일이 의존하는 파일 \(m.fanOut)개.",
+                                   "\(m.fanIn) files depend on its file and it depends on \(m.fanOut)."))
+        }
+        if m.cycleIndex != nil { parts.append(lang.pick("이 파일은 순환 의존에 속합니다.", "Its file is part of a dependency cycle.")) }
         let informative = relationGroups(for: id).filter { $0.relation != .uses && $0.relation != .imports }.prefix(5)
         for group in informative {
             let names = group.nodes.prefix(4).compactMap { graph.node($0)?.name }.joined(separator: ", ")
-            parts.append("\(group.relation.style.labelEn) \(group.outgoing ? "→" : "←") \(names)\(group.total > 4 ? " (+\(group.total - 4))" : "").")
+            parts.append("\(group.relation.style.name(lang)) \(group.outgoing ? "→" : "←") \(names)\(group.total > 4 ? " (+\(group.total - 4))" : "").")
         }
         return parts.joined(separator: " ")
     }
@@ -407,6 +419,16 @@ final class AppModel {
     func setMeetingMode(_ mode: MeetingMode, broadcast: Bool = true) {
         meetingMode = mode
         if broadcast && session.isHost { session.send(.mode(mode)) }
+    }
+
+    /// Switches the host AI (new session + instructions), the speech recognizer and every label at once.
+    func setLanguage(_ newLanguage: HostLanguage) {
+        guard newLanguage != language else { return }
+        LanguageSetting.shared.language = newLanguage
+        hostAI.language = newLanguage
+        speech.language = newLanguage
+        hostTranscript.append(TranscriptEntry(role: .system, text: L("호스트 언어: 한국어 · ", "Host language: English · ") + hostAI.backendLabel))
+        showToast(L("언어: 한국어", "Language: English"))
     }
 
     // MARK: - Search / selection
@@ -470,7 +492,8 @@ final class AppModel {
         dockedClusterID = clusterID
         if broadcast && session.isHost { session.send(.orbDock(clusterID: clusterID, docked: true)) }
         if let cluster = dockedCluster {
-            hostTranscript.append(TranscriptEntry(role: .system, text: "Host docked into \(cluster.title) · questions now use this cluster as context"))
+            hostTranscript.append(TranscriptEntry(role: .system, text: L("호스트가 \(cluster.title)에 도킹했습니다 · 이제 이 클러스터를 문맥으로 답합니다",
+                                                                            "Host docked into \(cluster.title) · questions now use this cluster as context")))
         }
     }
 
@@ -492,14 +515,17 @@ final class AppModel {
         hostTranscript.append(TranscriptEntry(role: .user, text: trimmed))
         if !session.isHost && !fromRemote {
             session.askHost(trimmed)
-            hostTranscript.append(TranscriptEntry(role: .system, text: "Sent to the host…"))
+            hostTranscript.append(TranscriptEntry(role: .system, text: L("호스트에게 전송했습니다…", "Sent to the host…")))
             return
         }
         beginThinking()
         var situation: [String] = []
-        if let docked = dockedCluster { situation.append("The host orb is docked in cluster \"\(docked.title)\" (id \(docked.id)); prefer answers about it.") }
+        if let docked = dockedCluster {
+            situation.append(L("호스트 오브가 클러스터 \"\(docked.title)\" (id \(docked.id))에 도킹되어 있습니다. 그 클러스터 위주로 답하세요.",
+                               "The host orb is docked in cluster \"\(docked.title)\" (id \(docked.id)); prefer answers about it."))
+        }
         if let selected = selectedNodeID, let node = graph.node(selected) {
-            situation.append("The person has \(node.name) (id \(selected.raw)) selected.")
+            situation.append(L("사용자가 \(node.name) (id \(selected.raw))을(를) 선택한 상태입니다.", "The person has \(node.name) (id \(selected.raw)) selected."))
             let digest = relationSummary(for: selected)
             if !digest.isEmpty { situation.append(digest) }
         }
@@ -546,7 +572,7 @@ final class AppModel {
 
     func askHostAboutSelection() async {
         guard let id = selectedNodeID, let node = graph.node(id) else { return }
-        hostTranscript.append(TranscriptEntry(role: .user, text: "Explain \(node.name)"))
+        hostTranscript.append(TranscriptEntry(role: .user, text: L("\(node.name) 설명", "Explain \(node.name)")))
         beginThinking()
         let reply = await hostAI.explain(id, graph: graph)
         appendHostSpeech(reply.text, nodeIDs: reply.nodeIDs, broadcast: true)
@@ -554,7 +580,7 @@ final class AppModel {
 
     func reviewSelection() async {
         guard let id = selectedNodeID, let node = graph.node(id) else { return }
-        hostTranscript.append(TranscriptEntry(role: .user, text: "Review \(node.name)"))
+        hostTranscript.append(TranscriptEntry(role: .user, text: L("\(node.name) 리뷰", "Review \(node.name)")))
         beginThinking()
         let reply = await hostAI.review(id, graph: graph, projectRoot: projectRootURL)
         appendHostSpeech(reply.text, nodeIDs: reply.nodeIDs, broadcast: true)
@@ -615,7 +641,7 @@ final class AppModel {
     func handleVoice(_ text: String) async {
         switch router.parse(text) {
         case .find(let query):
-            hostTranscript.append(TranscriptEntry(role: .user, text: "Find: \(query)"))
+            hostTranscript.append(TranscriptEntry(role: .user, text: L("찾기: \(query)", "Find: \(query)")))
             beginThinking()
             let reply = await hostAI.locate(query, graph: graph)
             if let first = reply.nodeIDs.first {
@@ -732,8 +758,8 @@ final class AppModel {
         session.send(.resolvePin(id, resolved: true))
     }
 
-    var pinsMarkdown: String { PinsExporter.markdown(pins: pins, graph: graph) }
-    var pinsFilename: String { PinsExporter.suggestedFilename(for: graph) }
+    var pinsMarkdown: String { PinsExporter.markdown(pins: pins, graph: graph, language: language) }
+    var pinsFilename: String { PinsExporter.suggestedFilename(for: graph, language: language) }
 
     // MARK: - Participants
 
@@ -743,7 +769,7 @@ final class AppModel {
         } else {
             participants.append(participant)
             if !participant.isLocal && !participant.id.raw.hasPrefix("sim-") {
-                showToast("\(participant.displayName) joined · 참가")
+                showToast(L("\(participant.displayName) 참가", "\(participant.displayName) joined"))
             }
         }
         if participant.role == .host && !participant.isLocal {
@@ -763,7 +789,7 @@ final class AppModel {
     func addSimulatedMember() {
         session.addSimulatedMember()
         if let newest = participants.last, !newest.isLocal {
-            showToast("\(newest.displayName) joined · 참가 (\(participants.count) in meeting)")
+            showToast(L("\(newest.displayName) 참가 (회의 인원 \(participants.count)명)", "\(newest.displayName) joined (\(participants.count) in meeting)"))
         }
     }
 

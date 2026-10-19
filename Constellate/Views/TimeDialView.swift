@@ -10,18 +10,19 @@ struct TimeDialView: View {
         VStack(alignment: .leading, spacing: compact ? 2 : 6) {
             if !compact {
                 HStack {
-                    Text("Time dial · 타임 다이얼").font(.headline)
+                    Text(L("타임 다이얼", "Time dial")).font(.headline)
                     Spacer()
-                    Button("Reset") { model.setTimeDial(0) }.controlSize(.small).disabled(model.timeDial == 0)
+                    Button(L("초기화", "Reset")) { model.setTimeDial(0) }.controlSize(.small).disabled(model.timeDial == 0)
                 }
             }
             HStack(spacing: 8) {
-                Text("Older").font(.caption2).foregroundStyle(.secondary)
+                Text(L("오래된", "Older")).font(.caption2).foregroundStyle(.secondary)
                 Slider(value: binding, in: -1...1)
-                Text("Newer").font(.caption2).foregroundStyle(.secondary)
+                    .accessibilityLabel(L("타임 다이얼", "Time dial"))
+                Text(L("최근", "Newer")).font(.caption2).foregroundStyle(.secondary)
             }
             if !compact {
-                Text(model.timeDial == 0 ? "Now · pure spatial layout" : String(format: "%+.2f", model.timeDial))
+                Text(model.timeDial == 0 ? L("지금 · 순수 공간 배치", "Now · pure spatial layout") : String(format: "%+.2f", model.timeDial))
                     .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
             }
         }

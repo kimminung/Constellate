@@ -73,7 +73,7 @@ final class SessionCoordinator {
 #if canImport(GroupActivities)
         state = .activating
         isHost = true
-        let activity = ConstellateActivity(projectName: model?.graph.projectName ?? "Constellate")
+        let activity = ConstellateActivity(projectName: model?.graph.projectName ?? "Constellate", languageCode: (model?.language ?? .appDefault).rawValue)
         do {
             let didActivate = try await activity.activate()
             if !didActivate { state = .idle }
@@ -175,7 +175,8 @@ final class SessionCoordinator {
             model.mergeRoster(roster)
         case .graphDigest(let name, let count, _):
             if model.graph.projectName != name || model.graph.nodes.count != count {
-                model.statusMessage = "Host is viewing \(name) (\(count) nodes). Open the same project to stay in sync."
+                model.statusMessage = L("호스트는 \(name)(노드 \(count)개)을 보고 있습니다. 같은 프로젝트를 열면 동기화됩니다.",
+                                        "Host is viewing \(name) (\(count) nodes). Open the same project to stay in sync.")
             }
         case .highlight(let ids, _):
             model.highlightedNodeIDs = Set(ids)

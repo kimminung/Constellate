@@ -1,4 +1,5 @@
 import AVFoundation
+import ConstellateKit
 import Foundation
 import Observation
 #if canImport(Speech)
@@ -6,7 +7,8 @@ import Speech
 #endif
 
 /// On-device speech recognition via `SpeechAnalyzer` + `SpeechTranscriber`, fed by `AVAudioEngine`.
-/// Push-to-talk (`start`/`stop`) plus an optional wake word ("Constellate" / "콘스텔").
+/// Push-to-talk (`start`/`stop`) plus an optional wake word ("콘스텔" / "Constellate").
+/// Listens in the app's `HostLanguage` (Korean by default) and falls back to the other language's model.
 @Observable
 @MainActor
 final class SpeechListener {
@@ -17,12 +19,12 @@ final class SpeechListener {
         case listening
         case unavailable(String)
 
-        var label: String {
+        func label(_ language: HostLanguage) -> String {
             switch self {
-            case .idle: "Mic off"
-            case .preparing: "Preparing speech model…"
-            case .listening: "Listening"
-            case .unavailable(let reason): "Speech unavailable · \(reason)"
+            case .idle: language.pick("마이크 꺼짐", "Mic off")
+            case .preparing: language.pick("음성 모델 준비 중…", "Preparing speech model…")
+            case .listening: language.pick("듣는 중", "Listening")
+            case .unavailable(let reason): language.pick("음성 인식 불가 · \(reason)", "Speech unavailable · \(reason)")
             }
         }
     }
@@ -31,6 +33,14 @@ final class SpeechListener {
     private(set) var liveTranscript = ""
     /// When true, utterances are only forwarded after the wake word.
     var requiresWakeWord = false
+    /// Recognition language. Changing it while listening restarts the session with the new model.
+    var language: HostLanguage = .appDefault {
+        didSet {
+            guard language != oldValue, isActive else { return }
+            stop()
+            start()
+        }
+    }
 
     var onWakeWord: (() -> Void)?
     var onFinalUtterance: ((String) -> Void)?
@@ -42,6 +52,9 @@ final class SpeechListener {
     private static let wakeWords = ["constellate", "콘스텔레이트", "콘스텔", "콘스텔라"]
 
     var isActive: Bool { state == .listening || state == .preparing }
+
+    /// Status text in the current language (tooltips, accessibility).
+    var stateLabel: String { state.label(language) }
 
     func toggle() {
         if isActive { stop() } else { start() }
@@ -76,13 +89,15 @@ final class SpeechListener {
 #if canImport(Speech)
         do {
             guard await AVAudioApplication.requestRecordPermission() else {
-                state = .unavailable("microphone permission needed")
+                state = .unavailable(language.pick("마이크 권한이 필요합니다", "microphone permission needed"))
                 return
             }
-            let preferred = await SpeechTranscriber.supportedLocale(equivalentTo: Locale.current)
-            let english = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "en_US"))
-            guard let locale = preferred ?? english else {
-                state = .unavailable("no supported locale")
+            // Preferred language first, then the other one, then whatever the device speaks.
+            let primary = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: language.localeIdentifier))
+            let secondary = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: language.fallback.localeIdentifier))
+            let device = await SpeechTranscriber.supportedLocale(equivalentTo: Locale.current)
+            guard let locale = primary ?? secondary ?? device else {
+                state = .unavailable(language.pick("지원되는 언어가 없습니다", "no supported locale"))
                 return
             }
             let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
@@ -91,14 +106,14 @@ final class SpeechListener {
             }
             let analyzer = SpeechAnalyzer(modules: [transcriber])
             guard let analyzerFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber]) else {
-                state = .unavailable("no compatible audio format")
+                state = .unavailable(language.pick("호환되는 오디오 형식이 없습니다", "no compatible audio format"))
                 return
             }
 
             let (stream, continuation) = AsyncStream<AnalyzerInput>.makeStream()
             let inputFormat = engine.inputNode.outputFormat(forBus: 0)
             guard inputFormat.sampleRate > 0 else {
-                state = .unavailable("no microphone input")
+                state = .unavailable(language.pick("마이크 입력이 없습니다", "no microphone input"))
                 return
             }
             let bridge = AudioTapBridge(inputFormat: inputFormat, outputFormat: analyzerFormat, continuation: continuation)
@@ -128,7 +143,7 @@ final class SpeechListener {
             tearDownAudio()
         }
 #else
-        state = .unavailable("Speech framework not available")
+        state = .unavailable(language.pick("Speech 프레임워크를 사용할 수 없습니다", "Speech framework not available"))
 #endif
     }
 

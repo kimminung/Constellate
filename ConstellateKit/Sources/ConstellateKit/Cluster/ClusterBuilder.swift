@@ -127,33 +127,38 @@ public struct ClusterBuilder: Sendable {
         return cluster
     }
 
-    /// Heuristic one-line summary when the AI is unavailable.
-    public static func heuristicSummary(for cluster: CodeCluster, in graph: CodeGraph) -> String {
+    /// Heuristic one-line summary when the AI is unavailable, in the requested language (English by default so
+    /// `CodeCluster.summary` and existing callers are unchanged).
+    public static func heuristicSummary(for cluster: CodeCluster, in graph: CodeGraph, language: HostLanguage = .english) -> String {
         let members = cluster.memberNodeIDs.compactMap(graph.node)
         let files = members.filter { $0.kind == .file }.count
         let types = members.filter { $0.kind == .type }.count
         let funcs = members.filter { $0.kind == .function }.count
+        let ko = language == .korean
+        func count(_ n: Int, _ koUnit: String, _ enUnit: String) -> String {
+            ko ? "\(koUnit) \(n)개" : "\(n) \(enUnit)\(n == 1 ? "" : "s")"
+        }
         var parts: [String] = []
-        if files > 0 { parts.append("\(files) file\(files == 1 ? "" : "s")") }
-        if types > 0 { parts.append("\(types) type\(types == 1 ? "" : "s")") }
-        if funcs > 0 { parts.append("\(funcs) function\(funcs == 1 ? "" : "s")") }
-        parts.append("\(cluster.totalLines) lines")
+        if files > 0 { parts.append(count(files, "파일", "file")) }
+        if types > 0 { parts.append(count(types, "타입", "type")) }
+        if funcs > 0 { parts.append(count(funcs, "함수", "function")) }
+        parts.append(ko ? "\(cluster.totalLines)줄" : "\(cluster.totalLines) lines")
 
         var notable: [String] = []
         let views = members.filter { $0.kind == .type && $0.tags.contains("SwiftUI.View") }.count
-        if views > 0 { notable.append("\(views) SwiftUI view\(views == 1 ? "" : "s")") }
+        if views > 0 { notable.append(count(views, "SwiftUI 뷰", "SwiftUI view")) }
         let observables = members.filter { $0.kind == .type && $0.tags.contains("@Observable") }.count
-        if observables > 0 { notable.append("\(observables) @Observable model\(observables == 1 ? "" : "s")") }
+        if observables > 0 { notable.append(count(observables, "@Observable 모델", "@Observable model")) }
         let actors = members.filter { $0.kind == .type && $0.tags.contains("actor") }.count
-        if actors > 0 { notable.append("\(actors) actor\(actors == 1 ? "" : "s")") }
-        if members.contains(where: { $0.tags.contains("entry-point") }) { notable.append("the app entry point") }
-        if members.contains(where: { $0.tags.contains("async") }) { notable.append("async code") }
-        if members.contains(where: { $0.kind == .type && $0.tags.contains("protocol") }) { notable.append("protocols") }
+        if actors > 0 { notable.append(count(actors, "액터", "actor")) }
+        if members.contains(where: { $0.tags.contains("entry-point") }) { notable.append(language.pick("앱 진입점", "the app entry point")) }
+        if members.contains(where: { $0.tags.contains("async") }) { notable.append(language.pick("비동기 코드", "async code")) }
+        if members.contains(where: { $0.kind == .type && $0.tags.contains("protocol") }) { notable.append(language.pick("프로토콜", "protocols")) }
         let tests = members.filter { $0.kind == .file && ($0.layer == .test || $0.tags.contains("test")) }.count
-        if tests > 0 { notable.append("\(tests) test file\(tests == 1 ? "" : "s")") }
+        if tests > 0 { notable.append(count(tests, "테스트 파일", "test file")) }
 
-        var text = "\(cluster.title): \(parts.joined(separator: ", ")) (\(cluster.dominantLayer.rawValue))."
-        if !notable.isEmpty { text += " Includes " + notable.joined(separator: ", ") + "." }
+        var text = "\(cluster.title): \(parts.joined(separator: ", ")) (\(cluster.dominantLayer.name(language)))."
+        if !notable.isEmpty { text += language.pick(" 포함: ", " Includes ") + notable.joined(separator: ", ") + "." }
         return text
     }
 }

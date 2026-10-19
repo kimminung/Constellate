@@ -5,17 +5,18 @@ import Foundation
 ///
 /// Order: the `@main` entry point → the largest root-level folders → the most referenced SwiftUI views →
 /// the busiest domain / data files → the tests. Steps are de-duplicated and capped at `maxSteps`.
-/// Narration is English; the app localises through the AI.
+/// Narration is written in the requested `HostLanguage` (Korean sentences hang their particles on a Korean
+/// noun — "타입은", "파일은" — so identifiers never need 은/는 guessing).
 public struct TourBuilder: Sendable {
     public init() {}
 
-    public func tour(for graph: CodeGraph, maxSteps: Int = 8) -> LearningTour {
+    public func tour(for graph: CodeGraph, maxSteps: Int = 8, language: HostLanguage = .english) -> LearningTour {
         let ids = candidates(for: graph, maxSteps: maxSteps)
         let steps = ids.compactMap { id -> TourStep? in
             guard let node = graph.node(id) else { return nil }
-            return TourStep(nodeID: id, title: title(for: node), narration: narration(for: node, in: graph))
+            return TourStep(nodeID: id, title: title(for: node, language: language), narration: narration(for: node, in: graph, language: language))
         }
-        return LearningTour(title: "\(graph.projectName) overview", steps: steps)
+        return LearningTour(title: language.pick("\(graph.projectName) 둘러보기", "\(graph.projectName) overview"), steps: steps)
     }
 
     /// Ordered, de-duplicated node ids the tour visits (used by the AI when it writes its own narration).
@@ -82,33 +83,36 @@ public struct TourBuilder: Sendable {
         return n
     }
 
-    private func title(for node: CodeNode) -> String {
+    private func title(for node: CodeNode, language: HostLanguage) -> String {
         switch node.kind {
-        case .module: "Project: \(node.name)"
+        case .module: language.pick("프로젝트: \(node.name)", "Project: \(node.name)")
         case .folder: "\(node.name)/"
         case .file: node.name
-        case .type: node.tags.contains("entry-point") ? "Entry point: \(node.name)" : node.name
+        case .type: node.tags.contains("entry-point") ? language.pick("진입점: \(node.name)", "Entry point: \(node.name)") : node.name
         case .extensionDecl: "extension \(node.name)"
         case .function: "\(node.name)()"
         case .property: node.name
         }
     }
 
-    private func narration(for node: CodeNode, in graph: CodeGraph) -> String {
+    private func narration(for node: CodeNode, in graph: CodeGraph, language: HostLanguage) -> String {
+        switch language {
+        case .korean: koreanNarration(for: node, in: graph)
+        case .english: englishNarration(for: node, in: graph)
+        }
+    }
+
+    private func englishNarration(for node: CodeNode, in graph: CodeGraph) -> String {
         switch node.kind {
         case .module:
             let s = graph.stats()
             return "\(node.name) has \(s.fileCount) files and \(s.totalLines) lines. We'll start from the top and work down through its layers."
         case .folder:
-            let files = graph.subtree(of: node.id).filter { $0.kind == .file }
-            let lines = files.reduce(0) { $0 + $1.lineCount }
-            var counts: [ArchitectureLayer: Int] = [:]
-            for f in files { counts[f.layer, default: 0] += 1 }
-            let layer = counts.max { $0.value < $1.value }?.key ?? node.layer
+            let (files, lines, layer) = folderFacts(node, in: graph)
             if node.layer == .test {
-                return "The \(node.name) folder holds \(files.count) test files; they are the safest place to learn how the pieces are meant to be used."
+                return "The \(node.name) folder holds \(files) test files; they are the safest place to learn how the pieces are meant to be used."
             }
-            return "The \(node.name) folder holds \(files.count) files and \(lines) lines, mostly \(TourBuilder.describe(layer)) code."
+            return "The \(node.name) folder holds \(files) files and \(lines) lines, mostly \(TourBuilder.describe(layer)) code."
         case .file:
             let types = graph.children(of: node.id).filter { $0.kind == .type }
             let refs = graph.fanIn(of: node.id)
@@ -136,6 +140,56 @@ public struct TourBuilder: Sendable {
         case .property:
             return "\(node.name) is a stored or computed property."
         }
+    }
+
+    private func koreanNarration(for node: CodeNode, in graph: CodeGraph) -> String {
+        switch node.kind {
+        case .module:
+            let s = graph.stats()
+            return "\(node.name) 프로젝트는 파일 \(s.fileCount)개, \(s.totalLines)줄로 이루어져 있습니다. 맨 위에서 시작해 레이어를 따라 내려가 보겠습니다."
+        case .folder:
+            let (files, lines, layer) = folderFacts(node, in: graph)
+            if node.layer == .test {
+                return "\(node.name) 폴더에는 테스트 파일 \(files)개가 있습니다. 각 부품이 어떻게 쓰이도록 설계됐는지 배우기에 가장 안전한 곳입니다."
+            }
+            return "\(node.name) 폴더에는 파일 \(files)개, \(lines)줄이 있고 대부분 \(layer.name(.korean)) 코드입니다."
+        case .file:
+            let types = graph.children(of: node.id).filter { $0.kind == .type }
+            let refs = graph.fanIn(of: node.id)
+            var text = "\(node.name) 파일은 \(node.layer.name(.korean)) 레이어에 있고 \(node.lineCount)줄입니다."
+            if !types.isEmpty { text += " 여기서 " + types.prefix(3).map(\.name).joined(separator: ", ") + " 타입을 선언합니다." }
+            if refs > 0 { text += " 다른 파일 \(refs)개가 이 파일을 참조합니다." }
+            if node.layer == .test || node.tags.contains("test") { text += " 기대 동작은 이 테스트에서 확인하세요." }
+            return text
+        case .type:
+            if node.tags.contains("entry-point") {
+                return "\(node.name) 타입은 @main이 붙은 앱 진입점입니다. 모든 것이 여기서 시작됩니다."
+            }
+            let fanIn = viewFanIn(node, in: graph)
+            let kind = node.tags.contains("SwiftUI.View") ? "SwiftUI 뷰" : (node.tags.contains("actor") ? "액터" : (node.tags.contains("protocol") ? "프로토콜" : "일반 타입"))
+            var text = "\(node.name) 타입은 \(kind)입니다."
+            if let file = graph.file(containing: node.id), file.id != node.id { text += " \(file.name) 파일 안에 있습니다." }
+            if fanIn > 0 { text += " \(fanIn)곳에서 참조됩니다." }
+            if node.tags.contains("@State") { text += " 로컬 @State를 가집니다." }
+            if node.tags.contains("@Observable") { text += " @Observable 모델입니다." }
+            return text
+        case .extensionDecl:
+            return "이 extension은 \(node.name) 타입에 동작을 추가합니다."
+        case .function:
+            return "\(node.name)() 함수는 \(node.lineCount)줄입니다." + (node.tags.contains("async") ? " 비동기로 실행됩니다." : "")
+        case .property:
+            return "\(node.name) 프로퍼티는 저장 또는 계산 프로퍼티입니다."
+        }
+    }
+
+    /// File count, total lines and the dominant layer of a folder's subtree.
+    private func folderFacts(_ node: CodeNode, in graph: CodeGraph) -> (files: Int, lines: Int, layer: ArchitectureLayer) {
+        let files = graph.subtree(of: node.id).filter { $0.kind == .file }
+        let lines = files.reduce(0) { $0 + $1.lineCount }
+        var counts: [ArchitectureLayer: Int] = [:]
+        for f in files { counts[f.layer, default: 0] += 1 }
+        let layer = counts.max { $0.value < $1.value }?.key ?? node.layer
+        return (files.count, lines, layer)
     }
 
     static func describe(_ layer: ArchitectureLayer) -> String {

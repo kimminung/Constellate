@@ -11,12 +11,12 @@ struct HostChatView: View {
             HStack(spacing: 10) {
                 HostOrbGlyph(presence: model.hostPresence, color: model.theme.orbHalo.swiftUIColor)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Host · 방장 AI").font(.headline)
-                    Text(model.hostStateLabel + " · " + model.hostAI.backend.label).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    Text(L("호스트 AI", "Host AI")).font(.headline)
+                    Text(model.hostStateLabel + " · " + model.hostAI.backendLabel).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer()
                 if model.dockedClusterID != nil {
-                    Button("Undock · 나와") { model.undockHost() }.controlSize(.small)
+                    Button(L("분리", "Undock")) { model.undockHost() }.controlSize(.small)
                 }
             }
             ScrollViewReader { proxy in
@@ -37,12 +37,13 @@ struct HostChatView: View {
                 Text("“\(model.speech.liveTranscript)”").font(.callout.italic()).foregroundStyle(.secondary)
             }
             HStack {
-                TextField("Ask, or say: find / explain / dock / tour …", text: $draft, axis: .vertical)
+                TextField(L("질문하거나 말하세요: 찾아 / 설명 / 들어가 / 투어 …", "Ask, or say: find / explain / dock / tour …"), text: $draft, axis: .vertical)
                     .lineLimit(1...3)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit(send)
                 Button(action: send) { Image(systemName: "paperplane.fill") }
                     .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .accessibilityLabel(L("보내기", "Send"))
                 VoiceButton(compact: true)
             }
         }

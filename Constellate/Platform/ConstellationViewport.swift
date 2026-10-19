@@ -87,7 +87,7 @@ struct ConstellationViewport: View {
         .onDisappear { updateSubscription = nil }
         .overlay(alignment: .topTrailing) {
             if model.isIngesting {
-                ProgressView(model.ingestProgress.map { "\($0.filesParsed) files…" } ?? "Reading project…")
+                ProgressView(model.ingestProgress.map { L("파일 \($0.filesParsed)개…", "\($0.filesParsed) files…") } ?? L("프로젝트 읽는 중…", "Reading project…"))
                     .padding(10)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
                     .padding()
@@ -95,7 +95,7 @@ struct ConstellationViewport: View {
         }
         .overlay(alignment: .bottomTrailing) {
             if rig.isPointing {
-                Label("Pointer · 포인터", systemImage: "scope")
+                Label(L("포인터", "Pointer"), systemImage: "scope")
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 10).padding(.vertical, 6)
                     .background(.regularMaterial, in: Capsule())

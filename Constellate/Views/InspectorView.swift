@@ -36,7 +36,8 @@ struct InspectorView: View {
             }
             .navigationTitle(node.name)
         } else {
-            ContentUnavailableView("Select a card", systemImage: "rectangle.on.rectangle.angled", description: Text("Tap a code card in the constellation or pick a node in the navigator."))
+            ContentUnavailableView(L("카드를 선택하세요", "Select a card"), systemImage: "rectangle.on.rectangle.angled",
+                                   description: Text(L("별자리에서 코드 카드를 탭하거나 내비게이터에서 노드를 고르세요.", "Tap a code card in the constellation or pick a node in the navigator.")))
         }
     }
 
@@ -53,7 +54,7 @@ struct InspectorView: View {
             }
             // Badges on their own line so the title never competes with them at 300 pt.
             HStack(spacing: 8) {
-                Text(node.layer.rawValue)
+                Text(node.layer.name(model.language))
                     .font(.caption.weight(.semibold))
                     .lineLimit(1)
                     .padding(.horizontal, 8).padding(.vertical, 3)
@@ -65,9 +66,9 @@ struct InspectorView: View {
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .foregroundStyle(role.style.color.swiftUIColor)
                         .background(role.style.color.swiftUIColor.opacity(0.16), in: Capsule())
-                        .help("Role · 역할 (the star's shape in the constellation)")
+                        .help(L("역할 (별자리에서 별의 모양)", "Role (the star's shape in the constellation)"))
                 }
-                Label(node.kind.rawValue, systemImage: "tag")
+                Label(node.kind.name(model.language), systemImage: "tag")
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             Text(node.path).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(2).truncationMode(.middle).textSelection(.enabled)
@@ -85,9 +86,9 @@ struct InspectorView: View {
     @ViewBuilder
     private func metadata(_ node: CodeNode) -> some View {
         if let lines = node.lines {
-            Label("L\(lines.start)–\(lines.end) · \(lines.count) lines", systemImage: "number")
+            Label(L("L\(lines.start)–\(lines.end) · \(lines.count)줄", "L\(lines.start)–\(lines.end) · \(lines.count) lines"), systemImage: "number")
         } else if node.lineCount > 0 {
-            Label("\(node.lineCount) lines", systemImage: "number")
+            Label(L("\(node.lineCount)줄", "\(node.lineCount) lines"), systemImage: "number")
         }
         if let date = node.modifiedAt {
             Label(date.formatted(date: .abbreviated, time: .omitted), systemImage: "clock")
@@ -98,9 +99,9 @@ struct InspectorView: View {
     private func hubs(_ node: CodeNode) -> some View {
         let hubs = model.hubs(within: node.id)
         return VStack(alignment: .leading, spacing: 6) {
-            Text("Most referenced · 허브").font(.headline)
+            Text(L("허브 · 가장 많이 참조됨", "Most referenced")).font(.headline)
             if hubs.isEmpty {
-                Text("Nothing inside is referenced yet.").font(.caption).foregroundStyle(.secondary)
+                Text(L("아직 안에서 참조되는 것이 없습니다.", "Nothing inside is referenced yet.")).font(.caption).foregroundStyle(.secondary)
             }
             ForEach(hubs, id: \.node.id) { hub in
                 Button { model.select(hub.node.id) } label: {
@@ -109,7 +110,7 @@ struct InspectorView: View {
                             .foregroundStyle(model.theme.color(for: hub.node.layer).swiftUIColor)
                         Text(hub.node.name).lineLimit(1)
                         Spacer()
-                        Text("\(hub.fanIn) refs").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        Text(L("\(hub.fanIn)회 참조", "\(hub.fanIn) refs")).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     }
                 }
                 .buttonStyle(.plain)
@@ -123,28 +124,29 @@ struct InspectorView: View {
         let m = model.metrics(for: node.id)
         let cycle = model.insights.cycleMembers(of: node.id)
         return VStack(alignment: .leading, spacing: 8) {
-            Text("Coupling · 결합도").font(.headline)
+            Text(L("결합도", "Coupling")).font(.headline)
             Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 4) {
                 GridRow {
-                    metric("\(m.fanIn)", "Fan-in · 의존받음", "Files that depend on this file (Ca)")
-                    metric("\(m.fanOut)", "Fan-out · 의존함", "Files this file depends on (Ce)")
+                    metric("\(m.fanIn)", L("의존받음 (Fan-in)", "Fan-in"), L("이 파일에 의존하는 파일 수 (Ca)", "Files that depend on this file (Ca)"))
+                    metric("\(m.fanOut)", L("의존함 (Fan-out)", "Fan-out"), L("이 파일이 의존하는 파일 수 (Ce)", "Files this file depends on (Ce)"))
                 }
                 GridRow {
-                    metric(m.instability.map { String(format: "%.2f", $0) } ?? "–", "Instability · 불안정도",
-                           "I = Ce / (Ca + Ce): 0 = stable foundation, 1 = free to change")
-                    metric("\(m.impact)", "Impact · 영향 범위", "Files that transitively depend on this one — what a change could ripple into")
+                    metric(m.instability.map { String(format: "%.2f", $0) } ?? "–", L("불안정도", "Instability"),
+                           L("I = Ce / (Ca + Ce): 0 = 안정된 기반, 1 = 자유롭게 바꿔도 됨", "I = Ce / (Ca + Ce): 0 = stable foundation, 1 = free to change"))
+                    metric("\(m.impact)", L("영향 범위", "Impact"),
+                           L("이 파일에 간접적으로 의존하는 파일 수 — 변경이 번질 수 있는 범위", "Files that transitively depend on this one — what a change could ripple into"))
                 }
             }
             if !cycle.isEmpty {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Image(systemName: "arrow.triangle.2.circlepath")
                         .foregroundStyle(EdgeBatchKey.cycleColor.swiftUIColor)
-                    Text("In a dependency cycle with \(cycle.count - 1) other file\(cycle.count == 2 ? "" : "s") · 순환 의존")
+                    Text(L("다른 파일 \(cycle.count - 1)개와 순환 의존 관계", "In a dependency cycle with \(cycle.count - 1) other file\(cycle.count == 2 ? "" : "s")"))
                         .font(.caption)
                     Spacer(minLength: 4)
-                    Button("Highlight") { model.setHighlights(cycle) }
+                    Button(L("강조", "Highlight")) { model.setHighlights(cycle) }
                         .controlSize(.small)
-                        .help("Highlight every file in the cycle; with Relations on, the loop is drawn in red")
+                        .help(L("순환에 속한 모든 파일을 강조합니다. 관계 표시가 켜져 있으면 고리가 빨갛게 그려집니다", "Highlight every file in the cycle; with Relations on, the loop is drawn in red"))
                 }
             }
         }
@@ -165,17 +167,17 @@ struct InspectorView: View {
         let groups = model.relationGroups(for: node.id)
         return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Relations · 관계").font(.headline)
+                Text(L("관계", "Relations")).font(.headline)
                 Spacer()
                 Button { model.cycleRelationMode() } label: {
-                    Label(model.relationMode.label, systemImage: model.relationMode.symbol).font(.caption)
+                    Label(model.relationMode.name(model.language), systemImage: model.relationMode.symbol).font(.caption)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
-                .help("Relations drawn in the constellation (tap to cycle off → focus → all)")
+                .help(L("별자리에 그려지는 관계 (탭하면 끔 → 선택 → 전체 순환)", "Relations drawn in the constellation (tap to cycle off → focus → all)"))
             }
             if groups.isEmpty {
-                Text("No relations leave this node.").font(.caption).foregroundStyle(.secondary)
+                Text(L("이 노드에서 나가는 관계가 없습니다.", "No relations leave this node.")).font(.caption).foregroundStyle(.secondary)
             }
             ForEach(groups) { group in
                 relationGroup(group)
@@ -191,10 +193,10 @@ struct InspectorView: View {
                 RelationSwatch(color: style.color.swiftUIColor, dashed: style.dashed, flow: style.flow)
                     .frame(width: 28, height: 10)
                     .scaleEffect(x: group.outgoing ? 1 : -1, y: 1)   // incoming: the arrow points back at this node
-                Text(group.phrase).font(.caption.weight(.semibold))
+                Text(group.relation.phrase(outgoing: group.outgoing, language: model.language)).font(.caption.weight(.semibold))
                 if hidden {
                     Image(systemName: "eye.slash").font(.caption2).foregroundStyle(.secondary)
-                        .help("Hidden in the constellation (legend)")
+                        .help(L("별자리에서 숨김 (범례)", "Hidden in the constellation (legend)"))
                 }
                 Spacer(minLength: 4)
                 Text(group.total.formatted()).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
@@ -224,7 +226,7 @@ struct InspectorView: View {
     private func pins(_ node: CodeNode) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Review pins · 핀").font(.headline)
+                Text(L("리뷰 핀", "Review pins")).font(.headline)
                 Spacer()
                 if !model.pins.isEmpty { exportControl }
             }
@@ -237,10 +239,10 @@ struct InspectorView: View {
                             .foregroundStyle(pin.resolved ? Color.green : model.theme.beacon.swiftUIColor)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(pin.resolved ? "Reopen pin" : "Resolve pin")
+                    .accessibilityLabel(pin.resolved ? L("핀 다시 열기", "Reopen pin") : L("핀 해결", "Resolve pin"))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(pin.text).strikethrough(pin.resolved)
-                        Text("\(pin.authorName) · \(pin.createdAt.formatted(date: .omitted, time: .shortened))" + (pin.line.map { " · line \($0)" } ?? ""))
+                        Text("\(pin.authorName) · \(pin.createdAt.formatted(date: .omitted, time: .shortened))" + (pin.line.map { L(" · \($0)행", " · line \($0)") } ?? ""))
                             .font(.caption2).foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 4)
@@ -248,18 +250,18 @@ struct InspectorView: View {
                         Button(role: .destructive) { model.deletePin(pin.id) } label: { Image(systemName: "trash") }
                             .buttonStyle(.plain)
                             .foregroundStyle(.secondary)
-                            .accessibilityLabel("Delete pin")
+                            .accessibilityLabel(L("핀 삭제", "Delete pin"))
                     }
                 }
             }
             HStack {
-                TextField("Add a review comment…", text: $pinText)
+                TextField(L("리뷰 코멘트 추가…", "Add a review comment…"), text: $pinText)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { addPin(node) }
-                Button("Pin") { addPin(node) }.disabled(pinText.trimmingCharacters(in: .whitespaces).isEmpty)
+                Button(L("핀", "Pin")) { addPin(node) }.disabled(pinText.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             if model.pins.count > model.pins(for: node.id).count {
-                Text("\(model.pins.count) pins in total across the project.").font(.caption2).foregroundStyle(.secondary)
+                Text(L("프로젝트 전체 핀 \(model.pins.count)개.", "\(model.pins.count) pins in total across the project.")).font(.caption2).foregroundStyle(.secondary)
             }
         }
     }
@@ -268,14 +270,14 @@ struct InspectorView: View {
     @ViewBuilder
     private var exportControl: some View {
 #if os(macOS)
-        Button { showExporter = true } label: { Label("Export pins", systemImage: "square.and.arrow.up") }
+        Button { showExporter = true } label: { Label(L("핀 내보내기", "Export pins"), systemImage: "square.and.arrow.up") }
             .controlSize(.small)
             .fileExporter(isPresented: $showExporter, item: model.pinsMarkdown, contentTypes: [.plainText], defaultFilename: model.pinsFilename) { result in
                 if case .failure(let error) = result { model.statusMessage = error.localizedDescription }
             }
 #else
-        ShareLink(item: model.pinsMarkdown, subject: Text("Review pins"), message: Text(model.pinsFilename), preview: SharePreview(model.pinsFilename, image: Image(systemName: "pin.fill"))) {
-            Label("Export pins", systemImage: "square.and.arrow.up")
+        ShareLink(item: model.pinsMarkdown, subject: Text(L("리뷰 핀", "Review pins")), message: Text(model.pinsFilename), preview: SharePreview(model.pinsFilename, image: Image(systemName: "pin.fill"))) {
+            Label(L("핀 내보내기", "Export pins"), systemImage: "square.and.arrow.up")
         }
         .controlSize(.small)
 #endif
@@ -293,16 +295,16 @@ struct InspectorView: View {
         let cluster = model.clusters.first { $0.memberNodeIDs.contains(node.id) }
         let columns = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
         return LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
-            actionButton("Ask host · 설명", "sparkles") { Task { await model.askHostAboutSelection() } }
-            actionButton("Review", "checklist") { Task { await model.reviewSelection() } }
-            actionButton("Summon · 출두", "arrow.up.forward.app") { model.summon(node.id, reason: "inspector") }
-            actionButton(model.pinnedBeacons.contains(node.id) ? "Unpin beacon" : "Beacon", "light.beacon.max") { model.togglePinnedBeacon(node.id) }
+            actionButton(L("호스트에게 설명 요청", "Ask host"), "sparkles") { Task { await model.askHostAboutSelection() } }
+            actionButton(L("리뷰", "Review"), "checklist") { Task { await model.reviewSelection() } }
+            actionButton(L("출두", "Summon"), "arrow.up.forward.app") { model.summon(node.id, reason: "inspector") }
+            actionButton(model.pinnedBeacons.contains(node.id) ? L("비콘 고정 해제", "Unpin beacon") : L("비콘", "Beacon"), "light.beacon.max") { model.togglePinnedBeacon(node.id) }
             if let cluster {
-                actionButton(model.dockedClusterID == cluster.id ? "Undock" : "Dock host", "circle.dotted.circle") { model.toggleDock(cluster.id) }
+                actionButton(model.dockedClusterID == cluster.id ? L("호스트 분리", "Undock") : L("호스트 도킹", "Dock host"), "circle.dotted.circle") { model.toggleDock(cluster.id) }
             }
 #if os(macOS) || os(visionOS)
             if nodeID == nil {
-                actionButton("Open in window", "macwindow.on.rectangle") { openWindow(id: "inspector", value: node.id) }
+                actionButton(L("새 창에서 열기", "Open in window"), "macwindow.on.rectangle") { openWindow(id: "inspector", value: node.id) }
             }
 #endif
         }

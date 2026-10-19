@@ -24,14 +24,16 @@ struct NavigatorView: View {
         VStack(spacing: 0) {
             HStack {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Find code · 찾기", text: $query)
+                TextField(L("코드 찾기", "Find code"), text: $query)
                     .textFieldStyle(.plain)
                     .focused($searchFocused)
                     .onSubmit {
                         if let first = model.search(query, limit: 1).first { model.summon(first.nodeID, reason: query) }
                     }
                 if !query.isEmpty {
-                    Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain)
+                    Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(L("검색어 지우기", "Clear search"))
                 }
             }
             .padding(8)
@@ -80,7 +82,7 @@ struct NavigatorView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
-                .accessibilityLabel(expanded.contains(row.id) ? "Collapse \(row.node.name)" : "Expand \(row.node.name)")
+                .accessibilityLabel(expanded.contains(row.id) ? L("\(row.node.name) 접기", "Collapse \(row.node.name)") : L("\(row.node.name) 펼치기", "Expand \(row.node.name)"))
             } else {
                 Spacer().frame(width: 14)
             }
